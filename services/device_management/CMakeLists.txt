@@ -1,8 +1,8 @@
 add_microservice(
-    NAME config
+    NAME device_management
     HEADERS
     SOURCES
         src/main.cc
     PROTO
-        config.proto
+        device_management.proto
 )

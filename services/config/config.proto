@@ -5,7 +5,7 @@ package ganymede.services.config;
 // Primitive message types
 message Config {
     message PompConfig {
-        float flow = 1;        // In ???
+        float flow = 1;        // In Liters per Minute
     }
 
     message SolutionConfig {

@@ -1,1 +1,3 @@
 add_subdirectory(config)
+add_subdirectory(measurements)
+add_subdirectory(device_management)

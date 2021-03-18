@@ -2,8 +2,8 @@
 
 #include <grpcpp/grpcpp.h>
 
-#include "config_service.pb.h"
-#include "config_service.grpc.pb.h"
+#include "config.pb.h"
+#include "config.grpc.pb.h"
 
 namespace ganymede::services::config {
 
@@ -31,7 +31,7 @@ int main(int argc, const char* argv[])
     ganymede::services::config::ConfigServiceImpl service;
 
     grpc::ServerBuilder builder;
-    builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());
+    builder.AddListeningPort("0.0.0.0:443", grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
 
     std::unique_ptr<grpc::Server> server = builder.BuildAndStart();

@@ -1,2 +1,6 @@
+# IDE configuration
 .vscode/
+
+# Build artefacts
+__pycache__
 cmake/

@@ -1,0 +1,34 @@
+type: google.api.Service
+config_version: 3
+
+name: ganymede.api.ganymede-hydro.cloud.goog
+title: Ganymede gRPC API
+
+apis:
+- name: ganymede.services.config.ConfigService
+- name: ganymede.services.device_management.DeviceManagementService
+- name: ganymede.services.measurements.MeasurementsService
+
+backend:
+  rules:
+    - selector: "ganymede.services.config.*"
+      address: grpcs://ganymede-config-service-sjgdj4ediq-nn.a.run.app:443
+
+    - selector: "ganymede.services.measurements.*"
+      address: grpcs://TBD:443 #TODO: Create service and get actual URL
+
+    - selector: "ganymede.services.device_management.*"
+      address: grpcs://TBD:443 #TODO: Create service and get actual URL
+
+# TODO: This is temporary. Need to replace it with JWT-based authentification
+# rules
+usage:
+  rules:
+  - selector: "*"
+    allow_unregistered_calls: true
+
+# FIXME: Is this needed? I'm not sure it works. I had to use host rewrite in
+# the load balancer.
+endpoints:
+- name: ganymede.davidbourgault.ca
+  allow_cors: true

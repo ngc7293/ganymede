@@ -1,8 +1,8 @@
 add_microservice(
-    NAME config
+    NAME measurements
     HEADERS
     SOURCES
         src/main.cc
     PROTO
-        config.proto
+        measurements.proto
 )
