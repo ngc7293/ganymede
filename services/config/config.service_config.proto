@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package ganymede.services.config;
+
+// ConfigService configuration object
+message ConfigServiceConfig {
+    message MongoDBConfig {
+        string host = 1;
+        string user = 2;
+        string password = 3;
+        string database = 4;
+    }
+
+    MongoDBConfig mongodb = 1;
+}

@@ -7,12 +7,15 @@ list(APPEND CMAKE_PREFIX_PATH
     "third_party/cpp-jwt/cmake/install"
     "third_party/json/cmake/install"
     "third_party/googletest/cmake/install"
+    "third_party/mongo-c-driver/cmake/install"
+    "third_party/mongo-cxx-driver/cmake/install"
 )
 
 find_package(protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(cpp-jwt REQUIRED)
+find_package(mongocxx CONFIG REQUIRED)
 
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 
