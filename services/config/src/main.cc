@@ -7,9 +7,10 @@
 #include <google/protobuf/util/json_util.h>
 #include <grpcpp/grpcpp.h>
 
-#include <bsoncxx/builder/stream/array.hpp>
+#include <mongoc/mongoc.h>
+
+#include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
-#include <bsoncxx/builder/stream/helpers.hpp>
 #include <mongocxx/client.hpp>
 #include <mongocxx/database.hpp>
 #include <mongocxx/exception/exception.hpp>
@@ -19,6 +20,8 @@
 #include "config.pb.h"
 #include "config.grpc.pb.h"
 #include "config.service_config.pb.h"
+
+#include "bson_serde.hh"
 
 namespace ganymede::services::config {
 
@@ -33,27 +36,47 @@ public:
 
     grpc::Status CreateConfig(grpc::ServerContext* context, const CreateConfigRequest* request, CreateConfigResponse* response) {
         auto collection = m_mongodb["configurations"];
-        auto builder = bsoncxx::builder::stream::document{};
+        auto builder = bsoncxx::builder::basic::document{};
 
-        bsoncxx::document::value doc_value = builder
-        << "uid" << 1
-        << bsoncxx::builder::stream::finalize;
+        if (not request->has_config()){
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "bad payload");
+        }
+
+        if (not MessageToBson(request->config(), builder)) {
+            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "Not yet implemented");
+        }
 
         try {
-            bsoncxx::stdx::optional<mongocxx::result::insert_one> result = collection.insert_one(doc_value.view());
+            bsoncxx::stdx::optional<mongocxx::result::insert_one> result = collection.insert_one(builder.extract().view());
 
             if (not (result and result.value().result().inserted_count() == 1)) {
                 return grpc::Status(grpc::StatusCode::UNKNOWN, "database error");
             }
+
+            response->set_uid(result.value().inserted_id().get_oid().value.to_string());
+            return grpc::Status::OK;
         } catch (const mongocxx::exception& e) {
+            std::cerr << "[error]" << e.what() << std::endl;
             return grpc::Status(grpc::StatusCode::UNKNOWN, "database error");
         }
-
-        return grpc::Status::OK;
     }
 
     grpc::Status GetConfig(grpc::ServerContext* context, const GetConfigRequest* request, GetConfigResponse* response) {
-        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "Not yet implemented");
+        auto collection = m_mongodb["configurations"];
+
+        try {
+            bsoncxx::stdx::optional<bsoncxx::document::value> result = collection.find_one(bsoncxx::builder::stream::document{} << "_id" << bsoncxx::oid(std::string_view(request->uid())) << bsoncxx::builder::stream::finalize);
+
+            if (result) {
+                BsonToMessage(result.value(), *(response->mutable_config()));
+                return grpc::Status::OK;
+            } else {
+                return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such configuration");
+            }
+        } catch (const mongocxx::exception& e) {
+            std::cerr << "[error]" << e.what() << std::endl;
+            return grpc::Status(grpc::StatusCode::UNKNOWN, "database error");
+        }
     }
 
     grpc::Status UpdateConfig(grpc::ServerContext* context, const UpdateConfigRequest* request, UpdateConfigResponse* response) {
@@ -95,9 +118,15 @@ std::string readFile(const std::filesystem::path& path)
 
 int main(int argc, const char* argv[])
 {
+    mongoc_init();
+
+    if (argc < 2) {
+        return -1;
+    }
+
     ganymede::services::config::ConfigServiceConfig service_config;
 
-    if (not google::protobuf::util::JsonStringToMessage(readFile("config.service_config.json"), &service_config).ok()) {
+    if (not google::protobuf::util::JsonStringToMessage(readFile(argv[1]), &service_config).ok()) {
         return -1;
     }
 
@@ -111,5 +140,7 @@ int main(int argc, const char* argv[])
 
     std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
     server->Wait();
+
+    mongoc_cleanup();
     return 0;
 }

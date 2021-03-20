@@ -15,6 +15,7 @@ find_package(protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(cpp-jwt REQUIRED)
+find_package (mongoc-1.0 CONFIG REQUIRED)
 find_package(mongocxx CONFIG REQUIRED)
 
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)

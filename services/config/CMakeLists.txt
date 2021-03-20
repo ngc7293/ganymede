@@ -8,4 +8,5 @@ add_microservice(
         config.service_config.proto
 )
 
-target_link_libraries(ganymede.services.config PUBLIC mongo::mongocxx_shared)
+target_link_libraries(ganymede.services.config PUBLIC mongo::mongocxx_shared mongo::mongoc_shared)
+file(COPY config.service_config.json DESTINATION ${CMAKE_BINARY_DIR}/config/)
