@@ -1,8 +1,0 @@
-add_microservice(
-    NAME config
-    HEADERS
-    SOURCES
-        src/main.cc
-    PROTO
-        config.proto
-)

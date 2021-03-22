@@ -25,6 +25,8 @@ message Config {
         Color color = 2;
     }
 
+    string name = 2;
+
     PompConfig     pomp_config     = 10;
     SolutionConfig solution_config = 11;
     LightConfig    light_config    = 12;
@@ -44,7 +46,6 @@ message GetConfigRequest {
 }
 
 message GetConfigResponse {
-    string uid = 1;
     Config config = 2;
 }
 
@@ -54,7 +55,6 @@ message UpdateConfigRequest {
 }
 
 message UpdateConfigResponse {
-    string uid = 1;
 }
 
 // Service definition
