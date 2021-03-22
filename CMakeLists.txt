@@ -3,12 +3,9 @@ project(ganymede VERSION 0.1.0)
 
 # Import third parties
 list(APPEND CMAKE_PREFIX_PATH
-    "third_party/grpc/cmake/install"
-    "third_party/cpp-jwt/cmake/install"
-    "third_party/json/cmake/install"
-    "third_party/googletest/cmake/install"
-    "third_party/mongo-c-driver/cmake/install"
-    "third_party/mongo-cxx-driver/cmake/install"
+    "${CMAKE_SOURCE_DIR}/third_party/grpc/cmake/install"
+    "${CMAKE_SOURCE_DIR}/third_party/mongo-c-driver/cmake/install"
+    "${CMAKE_SOURCE_DIR}/third_party/mongo-cxx-driver/cmake/install"
 )
 
 find_package(Threads REQUIRED)
