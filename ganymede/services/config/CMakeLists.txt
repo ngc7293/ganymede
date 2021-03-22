@@ -1,3 +1,8 @@
+project(ganymede.services.config VERSION 0.2.0)
+
+find_package(mongoc-1.0 CONFIG REQUIRED)
+find_package(mongocxx CONFIG REQUIRED)
+
 add_microservice(
     NAME config
     HEADERS

@@ -17,6 +17,8 @@
 #include <mongocxx/instance.hpp>
 #include <mongocxx/uri.hpp>
 
+#include "common/status.hh"
+
 #include "config.pb.h"
 #include "config.grpc.pb.h"
 #include "config.service_config.pb.h"
@@ -35,36 +37,34 @@ public:
     }
 
     grpc::Status CreateConfig(grpc::ServerContext* context, const CreateConfigRequest* request, CreateConfigResponse* response) {
-        auto collection = m_mongodb["configurations"];
-        auto builder = bsoncxx::builder::basic::document{};
-
         if (not request->has_config()){
-            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "bad payload");
+            return common::status::BAD_PAYLOAD;
         }
 
+        auto builder = bsoncxx::builder::basic::document{};
         if (not MessageToBson(request->config(), builder)) {
-            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "Not yet implemented");
+            return common::status::UNIMPLEMENTED;
         }
 
         try {
-            bsoncxx::stdx::optional<mongocxx::result::insert_one> result = collection.insert_one(builder.extract().view());
+            auto collection = m_mongodb["configurations"];
+            bsoncxx::stdx::optional<mongocxx::result::insert_one> result = collection.insert_one(builder.view());
 
-            if (not (result and result.value().result().inserted_count() == 1)) {
-                return grpc::Status(grpc::StatusCode::UNKNOWN, "database error");
+            if (result and result.value().result().inserted_count() == 1) {
+                response->set_uid(result.value().inserted_id().get_oid().value.to_string());
+                return grpc::Status::OK;
+            } else {
+                return common::status::DATABASE_ERROR;
             }
-
-            response->set_uid(result.value().inserted_id().get_oid().value.to_string());
-            return grpc::Status::OK;
         } catch (const mongocxx::exception& e) {
             std::cerr << "[error]" << e.what() << std::endl;
-            return grpc::Status(grpc::StatusCode::UNKNOWN, "database error");
+            return common::status::DATABASE_ERROR;
         }
     }
 
     grpc::Status GetConfig(grpc::ServerContext* context, const GetConfigRequest* request, GetConfigResponse* response) {
-        auto collection = m_mongodb["configurations"];
-
         try {
+            auto collection = m_mongodb["configurations"];
             bsoncxx::stdx::optional<bsoncxx::document::value> result = collection.find_one(bsoncxx::builder::stream::document{} << "_id" << bsoncxx::oid(std::string_view(request->uid())) << bsoncxx::builder::stream::finalize);
 
             if (result) {
@@ -75,12 +75,36 @@ public:
             }
         } catch (const mongocxx::exception& e) {
             std::cerr << "[error]" << e.what() << std::endl;
-            return grpc::Status(grpc::StatusCode::UNKNOWN, "database error");
+            return common::status::DATABASE_ERROR;
         }
     }
 
     grpc::Status UpdateConfig(grpc::ServerContext* context, const UpdateConfigRequest* request, UpdateConfigResponse* response) {
-        return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "Not yet implemented");
+        if (not request->has_config()){
+            return common::status::BAD_PAYLOAD;
+        }
+
+        auto builder = bsoncxx::builder::basic::document{};
+        if (not MessageToBson(request->config(), builder)) {
+            return common::status::UNIMPLEMENTED;
+        }
+
+        try {
+            auto collection = m_mongodb["configurations"];
+            bsoncxx::stdx::optional<mongocxx::result::update> result = collection.update_one(
+                bsoncxx::builder::stream::document{} << "_id" << bsoncxx::oid(std::string_view(request->uid())) << bsoncxx::builder::stream::finalize,
+                builder.view()
+            );
+
+            if (result and result.value().modified_count() == 1) {
+                return grpc::Status::OK;
+            } else {
+                return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such configuration");
+            }
+        } catch (const mongocxx::exception& e) {
+            std::cerr << "[error]" << e.what() << std::endl;
+            return common::status::DATABASE_ERROR;
+        }
     }
 
 private:

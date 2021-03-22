@@ -1,0 +1,5 @@
+__pycache__/
+.vscode/
+cmake/
+third_party/
+!third_party/build.py
