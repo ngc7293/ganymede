@@ -4,18 +4,22 @@ project(ganymede VERSION 0.1.0)
 # Import third parties
 list(APPEND CMAKE_PREFIX_PATH
     "${CMAKE_SOURCE_DIR}/third_party/grpc/cmake/install"
-    "${CMAKE_SOURCE_DIR}/third_party/mongo-c-driver/cmake/install"
-    "${CMAKE_SOURCE_DIR}/third_party/mongo-cxx-driver/cmake/install"
+    "${CMAKE_SOURCE_DIR}/third_party/cpp-jwt/cmake/install"
 )
 
 find_package(Threads REQUIRED)
 find_package(protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
+find_package(cpp-jwt REQUIRED)
 
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(GCLOUD_PROJECT_ID ganymede-hydro)
+set(GANYMEDE_GCP_PROJECT_ID ganymede-hydro)
+
+if(NOT DEFINED GANYMEDE_SCOPE)
+    set(GANYMEDE_SCOPE service.config service.device_management service.measurements)
+endif()
 
 # add_microservice
 # Generic function to create a C++/gRPC/Docker microservice. Creates 2 targets,
@@ -41,7 +45,7 @@ function(add_microservice)
 
     add_custom_target(
         ganymede.services.${ADD_MICROSERVICE_NAME}.docker
-        COMMAND docker build -t gcr.io/${GCLOUD_PROJECT_ID}/${ADD_MICROSERVICE_NAME}.service:${PROJECT_VERSION} -f ${CMAKE_CURRENT_SOURCE_DIR}/Dockerfile .
+        COMMAND docker build -t gcr.io/${GANYMEDE_GCP_PROJECT_ID}/${ADD_MICROSERVICE_NAME}.service:${PROJECT_VERSION} -f ${CMAKE_CURRENT_SOURCE_DIR}/Dockerfile .
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 endfunction()
