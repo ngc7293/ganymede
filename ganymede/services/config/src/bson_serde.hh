@@ -56,28 +56,32 @@ bool BsonToMessage(const bsoncxx::document::view& doc, google::protobuf::Message
     message.Clear();
 
     for (int i = 0; i < descriptor.field_count(); i++) {
-        const auto& field = *(descriptor.field(i));
+        const auto* field = descriptor.field(i);
 
-        bsoncxx::document::view::const_iterator it = doc.find(std::to_string(field.number()));
+        if (field == nullptr) {
+            continue;
+        }
+
+        bsoncxx::document::view::const_iterator it = doc.find(std::to_string(field->number()));
         if (it != doc.end()) {
-            switch (field.cpp_type()) {
+            switch (field->cpp_type()) {
                 default:
                     return false;
 
                 case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
-                    reflection.SetFloat(&message, &field, (float) it->get_double().value);
+                    reflection.SetFloat(&message, field, (float) it->get_double().value);
                     break;
 
                 case google::protobuf::FieldDescriptor::CPPTYPE_UINT32:
-                    reflection.SetUInt32(&message, &field, (std::uint32_t) it->get_int64().value);
+                    reflection.SetUInt32(&message, field, (std::uint32_t) it->get_int64().value);
                     break;
 
                 case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
-                    reflection.SetString(&message, &field, std::string(it->get_utf8().value));
+                    reflection.SetString(&message, field, std::string(it->get_utf8().value));
                     break;
 
                 case google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE:
-                    auto nested = reflection.MutableMessage(&message, &field);
+                    auto nested = reflection.MutableMessage(&message, field);
                     BsonToMessage(it->get_document().value, *nested);
                     break;
             }
