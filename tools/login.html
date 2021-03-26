@@ -1,0 +1,53 @@
+<html>
+    <head></head>
+    <body>
+        <div>
+            <div id="button-container">
+                <div id="token-span"></div>
+                <button id="login-button" onclick="window.location='https://dev-ganymede.us.auth0.com/authorize?client_id=O8N5VoUuMIqcGeIQcZVSdbOOGIajr5Ut&audience=ganymede-api&protocol=oauth2&response_type=token&redirect_uri=http://localhost:5000/';">Login</button>
+            </div>
+        </div>
+        <style>
+            body {
+                background: #000;
+            }
+
+            #button-container {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+
+            #token-span {
+                font-family: 'Source Code Pro', monospace;
+                width: 400px;
+                min-height: 32px;
+                padding: 10px;
+                background: #111;
+                color: #fff;
+                word-break: break-all;
+            }
+
+            #login-button {
+                width: 400px;
+            }
+
+        </style>
+        <script>
+            if(window.location.hash) {
+                hash = window.location.hash.replace('#', '');
+
+                data = {};
+                list = hash.split('&');
+                for (i in list) {
+                    t = list[i].split('=');
+                    data[t[0]] = t[1];
+                }
+
+                document.getElementById('token-span').textContent = data['access_token'];
+                window.Location.hash = '';
+            }
+        </script>
+    </body>
+</html>

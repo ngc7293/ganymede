@@ -93,7 +93,7 @@ public:
         try {
             result = m_collection.find_one(BuildIDFilter(request->uid(), domain));
         } catch (const mongocxx::exception& e) {
-            std::cerr << "[error] " << e.what() << std::endl;
+            std::cerr << R"({"severity":"ERROR", "message":")" << e.what() << "\"}" << std::endl;
             return common::status::DATABASE_ERROR;
         }
 
