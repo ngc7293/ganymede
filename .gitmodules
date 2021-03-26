@@ -16,6 +16,3 @@
 [submodule "third_party/mongo-c-driver"]
 	path = third_party/mongo-c-driver
 	url = git@github.com:mongodb/mongo-c-driver.git
-[submodule "third_party/postgres-cxx-client"]
-	path = third_party/postgres-cxx-client
-	url = git@github.com:anatoliifrolov/postgres-cxx-client.git
