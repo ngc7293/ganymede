@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+package ganymede.services.device_config;
+
+// Primitive message types
+message Device {
+    string uid = 1;
+    string mac = 2;
+
+    string name = 10;
+    string description = 11;
+
+    string config_uid = 20;
+}
+
+
+message Config {
+    message PompConfig {
+        float flow = 1;        // In Liters per Minute
+    }
+
+    message SolutionConfig {
+        float ph = 1;          // [0-14]
+        float ec = 2;          // In ???
+        float temperature = 3; // In celsius
+    }
+
+    message LightConfig {
+        message Color {
+            uint32 r = 1;
+            uint32 g = 2;
+            uint32 b = 3;
+        }
+
+        float intensity = 1;   // In Watts
+        Color color = 2;
+    }
+
+    string uid = 1;
+    string name = 2;
+
+    PompConfig     pomp_config     = 10;
+    SolutionConfig solution_config = 11;
+    LightConfig    light_config    = 12;
+}
+
+// Requests and responses
+
+message AddDeviceRequest {
+    Device device = 1;
+}
+
+message UpdateDeviceRequest {
+    Device device = 1;
+}
+
+message GetDeviceRequest {
+    oneof filter {
+        string device_uid = 1;
+        string device_mac = 2;
+    }
+}
+
+message ListDeviceRequest {
+    oneof filter {
+        string name_filter = 1;
+        string config_uid = 2;
+    }
+}
+
+message ListDeviceResponse {
+    repeated Device devices = 1;
+}
+
+message RemoveDeviceRequest {
+    string device_uid = 1;
+    string reason = 2;
+}
+
+message CreateConfigRequest {
+    Config config = 1;
+}
+
+message GetConfigRequest {
+    string config_uid = 1;
+}
+
+message ListConfigRequest {
+    string name_filter = 1;
+}
+
+message ListConfigResponse {
+    repeated Config configs = 1;
+}
+
+message UpdateConfigRequest {
+    Config config = 1;
+}
+
+message DeleteConfigRequest {
+    string config_uid = 1;
+    string reason = 2;
+
+    string replacement_config_uid = 3;
+}
+
+message DeleteConfigResponse {
+
+}
+
+message Empty { }
+
+// Service definition
+service DeviceConfigService {
+    rpc AddDevice(AddDeviceRequest) returns (Device);
+    rpc UpdateDevice(UpdateDeviceRequest) returns (Device);
+    rpc GetDevice(GetDeviceRequest) returns (Device);
+    rpc ListDevice(ListDeviceRequest) returns (ListDeviceResponse);
+    rpc RemoveDevice(RemoveDeviceRequest) returns (Empty);
+
+    rpc CreateConfig(CreateConfigRequest) returns (Config);
+    rpc UpdateConfig(UpdateConfigRequest) returns (Config);
+    rpc GetConfig(GetConfigRequest) returns (Config);
+    rpc ListConfig(ListConfigRequest) returns (ListConfigResponse);
+    rpc DeleteConfig(DeleteConfigRequest) returns (Empty);
+}

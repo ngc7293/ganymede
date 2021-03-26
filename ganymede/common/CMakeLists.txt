@@ -2,6 +2,7 @@ add_library(
     ganymede.common
     STATIC
     status.hh
+    log.hh
     auth/jwt.hh
 )
 
