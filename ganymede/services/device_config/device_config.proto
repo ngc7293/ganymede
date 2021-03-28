@@ -27,9 +27,9 @@ message Config {
 
     message LightConfig {
         message Color {
-            uint32 r = 1;
-            uint32 g = 2;
-            uint32 b = 3;
+            uint32 r = 1;       // 0-255
+            uint32 g = 2;       // 0-255
+            uint32 b = 3;       // 0-255
         }
 
         float intensity = 1;   // In Watts

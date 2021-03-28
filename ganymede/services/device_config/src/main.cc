@@ -11,6 +11,7 @@
 
 #include <bsoncxx/builder/basic/document.hpp>
 
+#include <mongocxx/exception/error_code.hpp>
 #include <mongocxx/client.hpp>
 #include <mongocxx/database.hpp>
 #include <mongocxx/exception/exception.hpp>
@@ -28,6 +29,8 @@
 #include "bson_serde.hh"
 
 namespace {
+
+const int MONGO_UNIQUE_KEY_VIOLATION = 11000;
 
 bsoncxx::builder::basic::document DocumentWithDomain(const std::string& domain)
 {
@@ -92,6 +95,7 @@ public:
         : m_mongoclient(mongocxx::uri{mongo_uri})
         , m_mongodb(m_mongoclient["configurations"])
     {
+        CreateUniqueIndex(DEVICE_COLLECTION, std::to_string(Device::kMacFieldNumber));
     }
 
     grpc::Status AddDevice(grpc::ServerContext* context, const AddDeviceRequest* request, Device* response) override {
@@ -112,11 +116,15 @@ public:
             return common::status::UNIMPLEMENTED;
         }
 
-        if (auto status = TryInsertDocumentIntoMongo("devices", builder, id)) {
+        int ec;
+        if (auto status = TryInsertDocumentIntoMongo(DEVICE_COLLECTION, builder, id, ec)) {
+            if (ec == MONGO_UNIQUE_KEY_VIOLATION) {
+                return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "there is already a Device with this MAC");
+            }
             return status.value();
         }
 
-        if (not FetchFromMongo<Device>("devices", BuildIDAndDomainFilter(id, domain), response)) {
+        if (not FetchFromMongo<Device>(DEVICE_COLLECTION, BuildIDAndDomainFilter(id, domain), response)) {
             common::log::error({{"message", "inserted device but could not fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
@@ -144,7 +152,7 @@ public:
                     return common::status::BAD_PAYLOAD;
             }
 
-            if (not FetchFromMongo<Device>("devices", filter.view(), response)) {
+            if (not FetchFromMongo<Device>(DEVICE_COLLECTION, filter.view(), response)) {
                 return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
             }
         } catch (const mongocxx::exception& e) {
@@ -160,7 +168,43 @@ public:
     }
 
     grpc::Status UpdateDevice(grpc::ServerContext* context, const UpdateDeviceRequest* request, Device* response) override {
-        return common::status::UNIMPLEMENTED;
+        std::string domain;
+        if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+            return common::status::UNAUTHENTICATED;
+        }
+
+        if (not request->has_device()) {
+            return common::status::BAD_PAYLOAD;
+        }
+
+        std::string id = request->device().uid();
+        const Device& device = RemoveUIDFromMessage(request->device());
+
+        mongocxx::collection collection = m_mongodb[DEVICE_COLLECTION];
+        auto builder = bsoncxx::builder::basic::document{};
+        auto nested = bsoncxx::builder::basic::document{};
+        if (not MessageToBson(device, nested)) {
+            return common::status::UNIMPLEMENTED;
+        }
+        builder.append(bsoncxx::builder::basic::kvp("$set", nested));
+
+        bsoncxx::stdx::optional<mongocxx::result::update> result;
+        try {
+            result = collection.update_one(BuildIDAndDomainFilter(id, domain), builder.view());
+        } catch (const mongocxx::exception& e) {
+            common::log::error({{"message", e.what()}});
+            return common::status::DATABASE_ERROR;
+        }
+
+        if (not result or result.value().modified_count() == 0) {
+            return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
+        }
+
+        if (not FetchFromMongo<Device>(DEVICE_COLLECTION, BuildIDAndDomainFilter(id, domain), response)) {
+            common::log::error({{"message", "updated config but could not fetch it back"}});
+            return common::status::DATABASE_ERROR;
+        }
+        return grpc::Status::OK;
     }
 
     grpc::Status RemoveDevice(grpc::ServerContext* context, const RemoveDeviceRequest* request, Empty* response) override {
@@ -169,7 +213,7 @@ public:
             return common::status::UNAUTHENTICATED;
         }
 
-        mongocxx::collection collection = m_mongodb["devices"];
+        mongocxx::collection collection = m_mongodb[DEVICE_COLLECTION];
         bsoncxx::stdx::optional<mongocxx::result::delete_result> result;
 
         try {
@@ -204,11 +248,11 @@ public:
             return common::status::UNIMPLEMENTED;
         }
 
-        if (auto status = TryInsertDocumentIntoMongo("configurations", builder, id)) {
+        if (auto status = TryInsertDocumentIntoMongo(CONFIG_COLLECTION, builder, id)) {
             return status.value();
         }
 
-        if (not FetchFromMongo<Config>("configurations", BuildIDAndDomainFilter(id, domain), response)) {
+        if (not FetchFromMongo<Config>(CONFIG_COLLECTION, BuildIDAndDomainFilter(id, domain), response)) {
             common::log::error({{"message", "inserted configuration but could not fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
@@ -224,7 +268,7 @@ public:
         }
 
         try {
-            if (not FetchFromMongo<Config>("configurations", BuildIDAndDomainFilter(request->config_uid(), domain), response)) {
+            if (not FetchFromMongo<Config>(CONFIG_COLLECTION, BuildIDAndDomainFilter(request->config_uid(), domain), response)) {
                 return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such configuration");
             }
         } catch (const mongocxx::exception& e) {
@@ -249,9 +293,10 @@ public:
             return common::status::BAD_PAYLOAD;
         }
 
-        const Config& config(request->config());
+        std::string id = request->config().uid();
+        const Config& config = RemoveUIDFromMessage(request->config());
 
-        mongocxx::collection collection = m_mongodb["configurations"];
+        mongocxx::collection collection = m_mongodb[CONFIG_COLLECTION];
         auto builder = bsoncxx::builder::basic::document{};
         auto nested = bsoncxx::builder::basic::document{};
         if (not MessageToBson(config, nested)) {
@@ -261,7 +306,7 @@ public:
 
         bsoncxx::stdx::optional<mongocxx::result::update> result;
         try {
-            result = collection.update_one(BuildIDAndDomainFilter(config.uid(), domain), builder.view());
+            result = collection.update_one(BuildIDAndDomainFilter(id, domain), builder.view());
         } catch (const mongocxx::exception& e) {
             common::log::error({{"message", e.what()}});
             return common::status::DATABASE_ERROR;
@@ -271,7 +316,7 @@ public:
             return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such configuration");
         }
 
-        if (not FetchFromMongo<Config>("configurations", BuildIDAndDomainFilter(config.uid(), domain), response)) {
+        if (not FetchFromMongo<Config>(CONFIG_COLLECTION, BuildIDAndDomainFilter(id, domain), response)) {
             common::log::error({{"message", "updated config but could not fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
@@ -284,7 +329,7 @@ public:
             return common::status::UNAUTHENTICATED;
         }
 
-        mongocxx::collection collection = m_mongodb["configurations"];
+        mongocxx::collection collection = m_mongodb[CONFIG_COLLECTION];
         bsoncxx::stdx::optional<mongocxx::result::delete_result> result;
 
         try {
@@ -303,12 +348,18 @@ public:
 
 private:
     std::optional<grpc::Status> TryInsertDocumentIntoMongo(const std::string& collection_name, const bsoncxx::builder::basic::document& builder, std::string& id) {
+        int ec;
+        return TryInsertDocumentIntoMongo(collection_name, builder, id, ec);
+    }
+
+    std::optional<grpc::Status> TryInsertDocumentIntoMongo(const std::string& collection_name, const bsoncxx::builder::basic::document& builder, std::string& id, int& ec) {
         mongocxx::collection collection = m_mongodb[collection_name];
         bsoncxx::stdx::optional<mongocxx::result::insert_one> result;
 
         try {
              result = collection.insert_one(builder.view());
         } catch (const mongocxx::exception& e) {
+            ec = e.code().value();
             common::log::error({{"message", e.what()}});
             return common::status::DATABASE_ERROR;
         }
@@ -317,6 +368,7 @@ private:
             return common::status::DATABASE_ERROR;
         }
 
+        ec = 0;
         id = OIDToString(result->inserted_id());
         return std::optional<grpc::Status>();
     }
@@ -334,6 +386,23 @@ private:
         }
         return (result.has_value());
     }
+
+    bool CreateUniqueIndex(const std::string& collection_name, const std::string& key) {
+        mongocxx::collection collection = m_mongodb[collection_name];
+
+        auto keys = bsoncxx::builder::basic::document{};
+        keys.append(bsoncxx::builder::basic::kvp(key, 1));
+
+        auto constraints = bsoncxx::builder::basic::document{};
+        constraints.append(bsoncxx::builder::basic::kvp("unique", true));
+
+        collection.create_index(keys.view(), constraints.view());
+        return true;
+    }
+
+public:
+    inline static const std::string DEVICE_COLLECTION = std::string("devices");
+    inline static const std::string CONFIG_COLLECTION = std::string("configurations");
 
 private:
      mongocxx::client m_mongoclient;
