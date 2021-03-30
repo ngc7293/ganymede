@@ -1,7 +1,0 @@
-syntax = "proto3";
-
-package ganymede.services.device_management;
-
-service DeviceManagementService {
-    
-}

@@ -1,11 +1,2 @@
-if("service.config" IN_LIST GANYMEDE_SCOPE)
-    add_subdirectory(config)
-endif()
-
-if("service.measurements" IN_LIST GANYMEDE_SCOPE)
-    add_subdirectory(measurements)
-endif()
-
-if("service.device_management" IN_LIST GANYMEDE_SCOPE)
-    add_subdirectory(device_management)
-endif()
+add_subdirectory(device_config)
+add_subdirectory(measurements)
