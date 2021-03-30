@@ -84,6 +84,16 @@ bool ValidateIsMacAddress(const std::string& mac)
     return true;
 }
 
+bool ValidateIsOid(const std::string& id)
+{
+    try {
+        bsoncxx::oid(std::string_view(id));
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 }
 
 namespace ganymede::services::device_config {
@@ -94,8 +104,10 @@ public:
     DeviceConfigServiceImpl(std::string mongo_uri)
         : m_mongoclient(mongocxx::uri{mongo_uri})
         , m_mongodb(m_mongoclient["configurations"])
+        , m_device_collection(m_mongodb["devices"])
+        , m_config_collection(m_mongodb["configurations"])
     {
-        CreateUniqueIndex(DEVICE_COLLECTION, std::to_string(Device::kMacFieldNumber));
+        CreateUniqueIndex(m_device_collection, std::to_string(Device::kMacFieldNumber));
     }
 
     grpc::Status AddDevice(grpc::ServerContext* context, const AddDeviceRequest* request, Device* response) override {
@@ -104,27 +116,37 @@ public:
             return common::status::UNAUTHENTICATED;
         }
 
-        if (not request->has_device() or not ValidateIsMacAddress(request->device().mac())) {
+        if (not request->has_device()) {
+            return common::status::BAD_PAYLOAD;
+        }
+
+        Device device = RemoveUIDFromMessage(request->device());
+
+        if (device.mac().empty() or (not ValidateIsMacAddress(device.mac()))) {
+            return common::status::BAD_PAYLOAD;
+        }
+
+        if (not device.config_uid().empty())
+            if (not (ValidateIsOid(device.config_uid()) and CheckIfExistInMongo(m_config_collection, BuildIDAndDomainFilter(device.config_uid(), domain)))) {
             return common::status::BAD_PAYLOAD;
         }
 
         std::string id;
         auto builder = DocumentWithDomain(domain);
-        Device config = RemoveUIDFromMessage(request->device());
 
-        if (not MessageToBson(config, builder)) {
+        if (not MessageToBson(device, builder)) {
             return common::status::UNIMPLEMENTED;
         }
 
         int ec;
-        if (auto status = TryInsertDocumentIntoMongo(DEVICE_COLLECTION, builder, id, ec)) {
+        if (auto status = TryInsertDocumentIntoMongo(m_device_collection, builder, id, ec)) {
             if (ec == MONGO_UNIQUE_KEY_VIOLATION) {
                 return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "there is already a Device with this MAC");
             }
             return status.value();
         }
 
-        if (not FetchFromMongo<Device>(DEVICE_COLLECTION, BuildIDAndDomainFilter(id, domain), response)) {
+        if (not FetchFromMongo<Device>(m_device_collection, BuildIDAndDomainFilter(id, domain), response)) {
             common::log::error({{"message", "inserted device but could not fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
@@ -142,17 +164,25 @@ public:
         try {
             auto filter = DocumentWithDomain(domain);
             switch(request->filter_case()) {
-                case GetDeviceRequest::kDeviceUid:
+            case GetDeviceRequest::kDeviceUid:
+                if (ValidateIsOid(request->device_uid())) {
                     filter.append(bsoncxx::builder::basic::kvp("_id", request->device_uid()));
-                    break;
-                case GetDeviceRequest::kDeviceMac:
-                    filter.append(bsoncxx::builder::basic::kvp(std::to_string(GetDeviceRequest::kDeviceMacFieldNumber), request->device_mac()));
-                    break;
-                case GetDeviceRequest::FILTER_NOT_SET:
+                } else {
                     return common::status::BAD_PAYLOAD;
+                }
+                break;
+            case GetDeviceRequest::kDeviceMac:
+                if (ValidateIsMacAddress(request->device_mac())) {
+                    filter.append(bsoncxx::builder::basic::kvp(std::to_string(GetDeviceRequest::kDeviceMacFieldNumber), request->device_mac()));
+                } else {
+                    return common::status::BAD_PAYLOAD;
+                }
+                break;
+            case GetDeviceRequest::FILTER_NOT_SET:
+                return common::status::BAD_PAYLOAD;
             }
 
-            if (not FetchFromMongo<Device>(DEVICE_COLLECTION, filter.view(), response)) {
+            if (not FetchFromMongo<Device>(m_device_collection, filter.view(), response)) {
                 return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
             }
         } catch (const mongocxx::exception& e) {
@@ -180,7 +210,15 @@ public:
         std::string id = request->device().uid();
         const Device& device = RemoveUIDFromMessage(request->device());
 
-        mongocxx::collection collection = m_mongodb[DEVICE_COLLECTION];
+        if (not ValidateIsOid(id)) {
+            return common::status::BAD_PAYLOAD;
+        }
+
+        if (not device.config_uid().empty())
+            if (not (ValidateIsOid(device.config_uid()) and CheckIfExistInMongo(m_config_collection, BuildIDAndDomainFilter(device.config_uid(), domain)))) {
+            return common::status::BAD_PAYLOAD;
+        }
+
         auto builder = bsoncxx::builder::basic::document{};
         auto nested = bsoncxx::builder::basic::document{};
         if (not MessageToBson(device, nested)) {
@@ -190,7 +228,7 @@ public:
 
         bsoncxx::stdx::optional<mongocxx::result::update> result;
         try {
-            result = collection.update_one(BuildIDAndDomainFilter(id, domain), builder.view());
+            result = m_device_collection.update_one(BuildIDAndDomainFilter(id, domain), builder.view());
         } catch (const mongocxx::exception& e) {
             common::log::error({{"message", e.what()}});
             return common::status::DATABASE_ERROR;
@@ -200,7 +238,7 @@ public:
             return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
         }
 
-        if (not FetchFromMongo<Device>(DEVICE_COLLECTION, BuildIDAndDomainFilter(id, domain), response)) {
+        if (not FetchFromMongo<Device>(m_device_collection, BuildIDAndDomainFilter(id, domain), response)) {
             common::log::error({{"message", "updated config but could not fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
@@ -213,11 +251,14 @@ public:
             return common::status::UNAUTHENTICATED;
         }
 
-        mongocxx::collection collection = m_mongodb[DEVICE_COLLECTION];
+        if (not ValidateIsOid(request->device_uid())) {
+            return common::status::BAD_PAYLOAD;
+        }
+
         bsoncxx::stdx::optional<mongocxx::result::delete_result> result;
 
         try {
-            result = collection.delete_one(BuildIDAndDomainFilter(request->device_uid(), domain));
+            result = m_device_collection.delete_one(BuildIDAndDomainFilter(request->device_uid(), domain));
         } catch (const mongocxx::exception& e) {
             common::log::error({{"message", e.what()}});
             return common::status::DATABASE_ERROR;
@@ -248,11 +289,11 @@ public:
             return common::status::UNIMPLEMENTED;
         }
 
-        if (auto status = TryInsertDocumentIntoMongo(CONFIG_COLLECTION, builder, id)) {
+        if (auto status = TryInsertDocumentIntoMongo(m_config_collection, builder, id)) {
             return status.value();
         }
 
-        if (not FetchFromMongo<Config>(CONFIG_COLLECTION, BuildIDAndDomainFilter(id, domain), response)) {
+        if (not FetchFromMongo<Config>(m_config_collection, BuildIDAndDomainFilter(id, domain), response)) {
             common::log::error({{"message", "inserted configuration but could not fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
@@ -267,8 +308,12 @@ public:
             return common::status::UNAUTHENTICATED;
         }
 
+        if (not ValidateIsOid(request->config_uid())) {
+            return common::status::BAD_PAYLOAD;
+        }
+
         try {
-            if (not FetchFromMongo<Config>(CONFIG_COLLECTION, BuildIDAndDomainFilter(request->config_uid(), domain), response)) {
+            if (not FetchFromMongo<Config>(m_config_collection, BuildIDAndDomainFilter(request->config_uid(), domain), response)) {
                 return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such configuration");
             }
         } catch (const mongocxx::exception& e) {
@@ -296,7 +341,11 @@ public:
         std::string id = request->config().uid();
         const Config& config = RemoveUIDFromMessage(request->config());
 
-        mongocxx::collection collection = m_mongodb[CONFIG_COLLECTION];
+        if (not ValidateIsOid(id)) {
+            return common::status::BAD_PAYLOAD;
+        }
+
+
         auto builder = bsoncxx::builder::basic::document{};
         auto nested = bsoncxx::builder::basic::document{};
         if (not MessageToBson(config, nested)) {
@@ -306,7 +355,7 @@ public:
 
         bsoncxx::stdx::optional<mongocxx::result::update> result;
         try {
-            result = collection.update_one(BuildIDAndDomainFilter(id, domain), builder.view());
+            result = m_config_collection.update_one(BuildIDAndDomainFilter(id, domain), builder.view());
         } catch (const mongocxx::exception& e) {
             common::log::error({{"message", e.what()}});
             return common::status::DATABASE_ERROR;
@@ -316,7 +365,7 @@ public:
             return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such configuration");
         }
 
-        if (not FetchFromMongo<Config>(CONFIG_COLLECTION, BuildIDAndDomainFilter(id, domain), response)) {
+        if (not FetchFromMongo<Config>(m_config_collection, BuildIDAndDomainFilter(id, domain), response)) {
             common::log::error({{"message", "updated config but could not fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
@@ -329,11 +378,14 @@ public:
             return common::status::UNAUTHENTICATED;
         }
 
-        mongocxx::collection collection = m_mongodb[CONFIG_COLLECTION];
+        if (not ValidateIsOid(request->config_uid())) {
+            return common::status::BAD_PAYLOAD;
+        }
+
         bsoncxx::stdx::optional<mongocxx::result::delete_result> result;
 
         try {
-            result = collection.delete_one(BuildIDAndDomainFilter(request->config_uid(), domain));
+            result = m_config_collection.delete_one(BuildIDAndDomainFilter(request->config_uid(), domain));
         } catch (const mongocxx::exception& e) {
             common::log::error({{"message", e.what()}});
             return common::status::DATABASE_ERROR;
@@ -347,13 +399,12 @@ public:
     }
 
 private:
-    std::optional<grpc::Status> TryInsertDocumentIntoMongo(const std::string& collection_name, const bsoncxx::builder::basic::document& builder, std::string& id) {
+    std::optional<grpc::Status> TryInsertDocumentIntoMongo(mongocxx::collection& collection, const bsoncxx::builder::basic::document& builder, std::string& id) {
         int ec;
-        return TryInsertDocumentIntoMongo(collection_name, builder, id, ec);
+        return TryInsertDocumentIntoMongo(collection, builder, id, ec);
     }
 
-    std::optional<grpc::Status> TryInsertDocumentIntoMongo(const std::string& collection_name, const bsoncxx::builder::basic::document& builder, std::string& id, int& ec) {
-        mongocxx::collection collection = m_mongodb[collection_name];
+    std::optional<grpc::Status> TryInsertDocumentIntoMongo(mongocxx::collection& collection, const bsoncxx::builder::basic::document& builder, std::string& id, int& ec) {
         bsoncxx::stdx::optional<mongocxx::result::insert_one> result;
 
         try {
@@ -374,8 +425,7 @@ private:
     }
 
     template<class T>
-    bool FetchFromMongo(const std::string& collection_name, const bsoncxx::document::view_or_value& filter, T* dest) {
-        mongocxx::collection collection = m_mongodb[collection_name];
+    bool FetchFromMongo(mongocxx::collection& collection, const bsoncxx::document::view_or_value& filter, T* dest) {
         bsoncxx::stdx::optional<bsoncxx::document::value> result;
 
         result = collection.find_one(filter.view());
@@ -387,9 +437,12 @@ private:
         return (result.has_value());
     }
 
-    bool CreateUniqueIndex(const std::string& collection_name, const std::string& key) {
-        mongocxx::collection collection = m_mongodb[collection_name];
+    bool CheckIfExistInMongo(mongocxx::collection& collection, const bsoncxx::document::view_or_value& filter) {
+        auto result = collection.count_documents(filter);
+        return result > 0;
+    }
 
+    bool CreateUniqueIndex(mongocxx::collection& collection, const std::string& key) {
         auto keys = bsoncxx::builder::basic::document{};
         keys.append(bsoncxx::builder::basic::kvp(key, 1));
 
@@ -400,13 +453,11 @@ private:
         return true;
     }
 
-public:
-    inline static const std::string DEVICE_COLLECTION = std::string("devices");
-    inline static const std::string CONFIG_COLLECTION = std::string("configurations");
-
 private:
-     mongocxx::client m_mongoclient;
-     mongocxx::database m_mongodb;
+    mongocxx::client m_mongoclient;
+    mongocxx::database m_mongodb;
+    mongocxx::collection m_device_collection;
+    mongocxx::collection m_config_collection;
 };
 
 

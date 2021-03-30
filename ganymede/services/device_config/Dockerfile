@@ -14,7 +14,7 @@ COPY third_party/build.py   /var/build/third_party/
 # Build third parties
 WORKDIR /var/build/third_party
 RUN git submodule update --init --recursive
-RUN ./build.py --project=grpc,json,cpp-jwt,mongo-c-driver,mongo-cxx-driver --prefix=/opt/local
+RUN ./build.py --project=grpc,json,cpp-jwt,mongo-c-driver,mongo-cxx-driver --prefix=/opt/local --release
 
 # Copy project source
 COPY CMakeLists.txt /var/build/
@@ -24,7 +24,7 @@ COPY ganymede       /var/build/ganymede
 ENV CMAKE_PREFIX_PATH=/opt/local
 ENV GANYMEDE_SCOPE="service.device_config"
 WORKDIR /var/build/cmake/build
-RUN cmake -G Ninja ../..
+RUN cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ../..
 RUN ninja ganymede.services.device_config
 
 FROM alpine:latest AS runtime

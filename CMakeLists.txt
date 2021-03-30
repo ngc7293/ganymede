@@ -5,12 +5,14 @@ project(ganymede VERSION 0.1.0)
 list(APPEND CMAKE_PREFIX_PATH
     "${CMAKE_SOURCE_DIR}/third_party/grpc/cmake/install"
     "${CMAKE_SOURCE_DIR}/third_party/cpp-jwt/cmake/install"
+    "${CMAKE_SOURCE_DIR}/third_party/json/cmake/install"
 )
 
 find_package(Threads REQUIRED)
 find_package(protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(cpp-jwt REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 
@@ -42,7 +44,7 @@ function(add_microservice)
     if("service.${ADD_MICROSERVICE_NAME}" IN_LIST GANYMEDE_SCOPE)
         add_executable(ganymede.services.${ADD_MICROSERVICE_NAME} ${ADD_MICROSERVICE_SOURCES} ${ADD_MICROSERVICE_HEADERS})
 
-        target_compile_features(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC cxx_std_17)
+        target_compile_features(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC cxx_std_20)
         target_compile_options(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC -Wall -Werror -Wpedantic)
         target_include_directories(ganymede.services.${ADD_MICROSERVICE_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}) # To include generated Protobuf/gRPC files
         target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.proto ganymede.common)

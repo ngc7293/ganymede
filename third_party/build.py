@@ -13,8 +13,7 @@ BUILD_OPTIONS = {
     'json': {'JSON_BuildTests': 'OFF'},
     'cpp-jwt': {'CPP_JWT_BUILD_EXAMPLES': 'OFF', 'CPP_JWT_BUILD_TESTS': 'OFF'},
     'mongo-c-driver': {'ENABLE_EXAMPLES': 'OFF', 'ENABLE_TESTS': 'OFF', 'ENABLE_UNINSTALL': 'OFF', 'ENABLE_AUTOMATIC_INIT_AND_CLEANUP': 'OFF'},
-    'mongo-cxx-driver': {'CMAKE_CXX_STANDARD': '17', 'BSONCXX_POLY_USE_STD': 'ON', 'ENABLE_UNINSTALL': 'OFF'},
-    'postgres-cxx-client': {}
+    'mongo-cxx-driver': {'CMAKE_CXX_STANDARD': '17', 'BSONCXX_POLY_USE_STD': 'ON', 'ENABLE_UNINSTALL': 'OFF'}
 }
 
 
