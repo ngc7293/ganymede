@@ -30,7 +30,6 @@ RUN ninja ganymede.services.device_config
 FROM alpine:latest AS runtime
 
 RUN apk add libstdc++
-COPY --from=build /opt/local/ /usr/local
 COPY --from=build /var/build/cmake/build/bin/ /opt/bin/
 COPY ganymede/services/device_config/device_config.service_config.json /opt/var/
 

@@ -1,4 +1,4 @@
-project(ganymede.services.device_config VERSION 0.2.8)
+project(ganymede.services.device_config VERSION 0.2.9)
 
 add_microservice(
     NAME
@@ -19,5 +19,5 @@ if("service.device_config" IN_LIST GANYMEDE_SCOPE)
 
     find_package(mongoc-1.0 CONFIG REQUIRED)
     find_package(mongocxx CONFIG REQUIRED)
-    target_link_libraries(ganymede.services.device_config PUBLIC mongo::mongocxx_shared mongo::mongoc_shared)
+    target_link_libraries(ganymede.services.device_config PUBLIC mongo::mongocxx_static mongo::mongoc_static)
 endif()

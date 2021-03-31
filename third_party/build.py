@@ -9,11 +9,11 @@ import subprocess
 
 BUILD_OPTIONS = {
     'googletest': {},
-    'grpc': {'gRPC_INSTALL': 'ON', 'gRPC_BUILD_TESTS': 'OFF', 'gRPC_BUILD_CSHARP_EXT': 'OFF', 'gRPC_BUILD_GRPC_CSHARP_PLUGIN': 'OFF', 'gRPC_BUILD_GRPC_NODE_PLUGIN': 'OFF', 'gRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN': 'OFF', 'gRPC_BUILD_GRPC_RUBY_PLUGIN': 'OFF'},
+    'grpc': {'gRPC_INSTALL': 'ON', 'gRPC_BUILD_TESTS': 'OFF', 'gRPC_BUILD_CSHARP_EXT': 'OFF', 'gRPC_BUILD_GRPC_CSHARP_PLUGIN': 'OFF', 'gRPC_BUILD_GRPC_NODE_PLUGIN': 'OFF', 'gRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN': 'OFF', 'gRPC_BUILD_GRPC_RUBY_PLUGIN': 'OFF', 'gRPC_SSL_PROVIDER': 'package'},
     'json': {'JSON_BuildTests': 'OFF'},
     'cpp-jwt': {'CPP_JWT_BUILD_EXAMPLES': 'OFF', 'CPP_JWT_BUILD_TESTS': 'OFF'},
-    'mongo-c-driver': {'ENABLE_EXAMPLES': 'OFF', 'ENABLE_TESTS': 'OFF', 'ENABLE_UNINSTALL': 'OFF', 'ENABLE_AUTOMATIC_INIT_AND_CLEANUP': 'OFF'},
-    'mongo-cxx-driver': {'CMAKE_CXX_STANDARD': '17', 'BSONCXX_POLY_USE_STD': 'ON', 'ENABLE_UNINSTALL': 'OFF'}
+    'mongo-c-driver': {'ENABLE_EXAMPLES': 'OFF', 'ENABLE_TESTS': 'OFF', 'ENABLE_UNINSTALL': 'OFF', 'ENABLE_AUTOMATIC_INIT_AND_CLEANUP': 'OFF', 'ENABLE_STATIC': 'ON'},
+    'mongo-cxx-driver': {'CMAKE_CXX_STANDARD': '17', 'BSONCXX_POLY_USE_STD': 'ON', 'ENABLE_UNINSTALL': 'OFF', 'BUILD_SHARED_LIBS': 'OFF'},
 }
 
 
@@ -30,15 +30,15 @@ def build(submodule, cmake_args=None, prefix='../install', clean=False, debug=Tr
     os.makedirs('cmake/install', exist_ok=True)
     os.chdir('cmake/build')
 
-    build_type = 'DEBUG' if debug else 'RELEASE'
+    build_type = 'Debug' if debug else 'Release'
     args = ['cmake', '-GNinja', f'-DCMAKE_INSTALL_PREFIX={prefix}', f'-DCMAKE_BUILD_TYPE={build_type}', '../..']
 
     if cmake_args:
         args += [f'-D{a}={cmake_args[a]}' for a in cmake_args]
 
     subprocess.run(args)
-    subprocess.run(['ninja'])
-    subprocess.run(['ninja', 'install'])
+    subprocess.run(['cmake', '--build', '.', '-j14'])
+    subprocess.run(['cmake', '--install', '.'])
 
     os.environ['CMAKE_PREFIX_PATH'] += f':{cwd}/{submodule}/cmake/install'
     os.environ['PATH'] += f':{cwd}/cmake/install/bin'
