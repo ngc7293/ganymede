@@ -6,16 +6,15 @@ title: Ganymede gRPC API
 
 apis:
 - name: ganymede.services.device_config.DeviceConfigService
-# - name: ganymede.services.measurements.MeasurementsService
+- name: ganymede.services.measurements.MeasurementsService
 
 backend:
   rules:
     - selector: "ganymede.services.device_config.*"
       address: grpcs://ganymede-device-config-service-sjgdj4ediq-nn.a.run.app:443
 
-    # - selector: "ganymede.services.measurements.*"
-    #   address: grpcs://TBD:443 #TODO: Create service and get actual URL
-
+    - selector: "ganymede.services.measurements.*"
+      address: grpcs://ganymede-measurements-service-sjgdj4ediq-nn.a.run.app:443
 
 authentication:
   providers:

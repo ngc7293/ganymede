@@ -9,9 +9,10 @@ list(APPEND CMAKE_PREFIX_PATH
 )
 
 find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
 find_package(protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
-find_package(cpp-jwt REQUIRED)
+find_package(cpp-jwt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
@@ -19,9 +20,12 @@ get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(GANYMEDE_GCP_PROJECT_ID ganymede-hydro)
 
-if(NOT DEFINED GANYMEDE_SCOPE)
+if(NOT DEFINED ENV{GANYMEDE_SCOPE})
     set(GANYMEDE_SCOPE service.device_config service.measurements)
+else()
+    set(GANYMEDE_SCOPE $ENV{GANYMEDE_SCOPE})
 endif()
+message("GANYMEDE_SCOPE = ${GANYMEDE_SCOPE}")
 
 # add_microservice
 # Generic function to create a C++/gRPC/Docker microservice. Creates 2 targets,
@@ -44,8 +48,8 @@ function(add_microservice)
     if("service.${ADD_MICROSERVICE_NAME}" IN_LIST GANYMEDE_SCOPE)
         add_executable(ganymede.services.${ADD_MICROSERVICE_NAME} ${ADD_MICROSERVICE_SOURCES} ${ADD_MICROSERVICE_HEADERS})
 
-        target_compile_features(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC cxx_std_20)
-        target_compile_options(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC -Wall -Werror -Wpedantic)
+        target_compile_features(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC cxx_std_17)
+        target_compile_options(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC -Wall -Wpedantic)
         target_include_directories(ganymede.services.${ADD_MICROSERVICE_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}) # To include generated Protobuf/gRPC files
         target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.proto ganymede.common)
 

@@ -31,9 +31,6 @@ message PushMeasurementsRequest {
     repeated Measurement measurements = 1;
 }
 
-message PushMeasurementsResponse {
-}
-
 message GetMeasurementsRequest {
     string source_uid = 1;
 
@@ -45,8 +42,10 @@ message GetMeasurementsResponse {
     repeated Measurement measurements = 1;
 }
 
+message Empty {}
+
 // Service
-service MeasurementService {
-    rpc PushMeasurements(PushMeasurementsRequest) returns (PushMeasurementsResponse);
+service MeasurementsService {
+    rpc PushMeasurements(PushMeasurementsRequest) returns (Empty);
     rpc GetMeasurements(GetMeasurementsRequest) returns (GetMeasurementsResponse);
 }
