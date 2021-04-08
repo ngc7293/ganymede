@@ -49,7 +49,9 @@ public:
                     data.emplace_back("humidity", atmo.humidity());
                 }
 
-                m_influx.Write({{"atmo", {{"domain", domain}, {"source", source}}, std::vector<influx::value_pair>(data), timestamp}});
+                if (not data.empty()) {
+                    m_influx.Write({{"atmo", {{"domain", domain}, {"source", source}}, std::vector<influx::value_pair>(data), timestamp}});
+                }
             }
 
             if (measurement.has_solution()) {
@@ -72,7 +74,9 @@ public:
                     data.emplace_back("ec", solution.ec());
                 }
 
-                m_influx.Write({{"solution", {{"domain", domain}, {"source", source}}, std::vector<influx::value_pair>(data), timestamp}});
+                if (not data.empty()) {
+                    m_influx.Write({{"solution", {{"domain", domain}, {"source", source}}, std::vector<influx::value_pair>(data), timestamp}});
+                }
             }
         }
 

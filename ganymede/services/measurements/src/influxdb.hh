@@ -23,6 +23,8 @@ public:
     Point& AddValue(value_pair&& value);
     Point& SetTime(const std::chrono::time_point<std::chrono::high_resolution_clock>& time);
 
+    const bool empty() const { return m_values.empty(); }
+
     const std::string& series() const { return m_series; }
     const std::vector<value_pair>& values() const { return m_values; }
     const std::chrono::time_point<std::chrono::high_resolution_clock>& time() const { return m_time; }
