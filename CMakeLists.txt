@@ -49,7 +49,7 @@ function(add_microservice)
         add_executable(ganymede.services.${ADD_MICROSERVICE_NAME} ${ADD_MICROSERVICE_SOURCES} ${ADD_MICROSERVICE_HEADERS})
 
         target_compile_features(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC cxx_std_17)
-        target_compile_options(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC -Wall -Wpedantic)
+        target_compile_options(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC -Wall -Wpedantic -Werror)
         target_include_directories(ganymede.services.${ADD_MICROSERVICE_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}) # To include generated Protobuf/gRPC files
         target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.proto ganymede.common)
 

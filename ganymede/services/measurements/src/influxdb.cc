@@ -102,6 +102,10 @@ void InfluxDB::Write(std::vector<Point> points)
     std::ostringstream os;
 
     for (const Point& point : points) {
+        if (point.empty()) {
+            continue;
+        }
+
         os << point << std::endl;
         m_lines.push_back(os.str());
         os.clear();
@@ -136,7 +140,9 @@ void InfluxDB::Flush()
             error["influx_error"] = nlohmann::json::parse(response.text);
         } catch (...) { }
         common::log::error(error);
-    } else {
+    }
+
+    if (response.status_code / 200 == 1 or response.status_code / 400 == 1) {
         m_lines.clear();
     }
 }
