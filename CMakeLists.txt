@@ -3,9 +3,7 @@ project(ganymede VERSION 0.1.0)
 
 # Import third parties
 list(APPEND CMAKE_PREFIX_PATH
-    "${CMAKE_SOURCE_DIR}/third_party/grpc/cmake/install"
-    "${CMAKE_SOURCE_DIR}/third_party/cpp-jwt/cmake/install"
-    "${CMAKE_SOURCE_DIR}/third_party/json/cmake/install"
+    "${CMAKE_SOURCE_DIR}/build"
 )
 
 find_package(Threads REQUIRED)
@@ -17,11 +15,12 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(GANYMEDE_GCP_PROJECT_ID ganymede-hydro)
 
 if(NOT DEFINED ENV{GANYMEDE_SCOPE})
-    set(GANYMEDE_SCOPE service.device_config service.measurements)
+    set(GANYMEDE_SCOPE service.device_config)
 else()
     set(GANYMEDE_SCOPE $ENV{GANYMEDE_SCOPE})
 endif()
