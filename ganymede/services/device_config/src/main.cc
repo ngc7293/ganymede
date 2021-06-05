@@ -42,7 +42,7 @@ bsoncxx::builder::basic::document DocumentWithDomain(const std::string& domain)
 bsoncxx::document::value BuildIDAndDomainFilter(const std::string& id, const std::string& domain)
 {
     auto builder = DocumentWithDomain(domain);
-    builder.append(bsoncxx::builder::basic::kvp("_id", bsoncxx::oid(std::string_view(id))));
+    builder.append(bsoncxx::builder::basic::kvp("_id", bsoncxx::oid(std::string(id))));
     return builder.extract();
 }
 
@@ -87,7 +87,7 @@ bool ValidateIsMacAddress(const std::string& mac)
 bool ValidateIsOid(const std::string& id)
 {
     try {
-        bsoncxx::oid(std::string_view(id));
+        bsoncxx::oid(std::string(id));
         return true;
     } catch (...) {
         return false;

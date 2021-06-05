@@ -1,29 +1,24 @@
 FROM alpine:latest AS base
 
-RUN apk add git g++ cmake ninja g++ openssh openssl-dev linux-headers python3
+RUN apk add git g++ cmake ninja g++ openssh openssl-dev linux-headers python3 python3-pip
+RUN pip install conan
 
 FROM base AS build
 
 # Copy only third-party files. We want to copy the smallest amount of files so
 # that it invalidates Docker's cache as seldomly as possible.
-RUN mkdir /var/build /opt/local
-COPY .git                   /var/build/.git
-COPY .gitignore .gitmodules /var/build/
-COPY third_party/build.py   /var/build/third_party/
-
 # Build third parties
-WORKDIR /var/build/third_party
-RUN git submodule update --init --recursive
-RUN ./build.py --project=grpc,json,cpp-jwt,mongo-c-driver,mongo-cxx-driver --prefix=/opt/local --release
 
 # Copy project source
 COPY CMakeLists.txt /var/build/
+COPY conanfile.txt  /var/build/
 COPY ganymede       /var/build/ganymede
 
 # Build project
 ENV CMAKE_PREFIX_PATH=/opt/local
 ENV GANYMEDE_SCOPE="service.device_config"
 WORKDIR /var/build/cmake/build
+RUN conan install ../..
 RUN cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ../..
 RUN ninja ganymede.services.device_config
 
