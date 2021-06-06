@@ -12,6 +12,4 @@ add_microservice(
         measurements.service_config.proto
 )
 
-if ("service.measurements" IN_LIST GANYMEDE_SCOPE)
-    # target_link_libraries(ganymede.services.measurements PUBLIC cpr::cpr)
-endif()
+target_link_libraries(ganymede.services.measurements PUBLIC cpr::cpr)
