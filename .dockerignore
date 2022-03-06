@@ -1,5 +1,8 @@
+# IDE
 __pycache__/
 .vscode/
-cmake/
-third_party/
-!third_party/build.py
+
+# Build artefacts
+_build/
+build/
+out/
