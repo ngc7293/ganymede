@@ -10,4 +10,4 @@ add_microservice(
         measurements.service_config.proto
 )
 
-target_link_libraries(ganymede.services.measurements)
+target_link_libraries(ganymede.services.measurements PRIVATE influx)

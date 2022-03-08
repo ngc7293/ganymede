@@ -5,6 +5,8 @@
 
 #include <grpcpp/grpcpp.h>
 
+#include <influx/influx.hh>
+
 #include "common/auth/jwt.hh"
 #include "common/log.hh"
 #include "common/status.hh"
@@ -17,122 +19,152 @@ namespace ganymede::services::measurements {
 
 class MeasurementsServiceImpl final : public MeasurementsService::Service {
 public:
-    MeasurementsServiceImpl()
+    MeasurementsServiceImpl(influx::Influx&& influx)
+        : influx_(influx)
     {
     }
 
     grpc::Status PushMeasurements(grpc::ServerContext* context, const PushMeasurementsRequest* request, Empty* response) override {
-        // std::string domain;
-        // if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        //     return common::status::UNAUTHENTICATED;
-        // }
+        std::string domain;
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+            return common::status::UNAUTHENTICATED;
+        }
 
-        // for (const Measurement& measurement : request->measurements()) {
-        //     const std::string& source = measurement.source_uid();
-        //     const auto timestamp = std::chrono::time_point<std::chrono::high_resolution_clock>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(measurement.timestamp())));
+        influx::Bucket bucket;
+        try {
+            bucket = influx_["measurements-" + domain];
+        } catch (const influx::InfluxRemoteError& err) {
+            common::log::error({{"message", err.what()}, {"code", err.statusCode()}});
+        } catch (const std::exception& err) {
+            common::log::error({{"message", err.what()}});
+            return grpc::Status(grpc::StatusCode::INTERNAL, "");
+        }
 
-        //     if (measurement.has_atmosphere()) {
-        //         const AtmosphericMeasurements& atmo = measurement.atmosphere();
-        //         std::vector<influx::value_pair> data;
+        if (!bucket) {
+            return common::status::DATABASE_ERROR;
+        }
 
-        //         if (atmo.temperature() != 0) {
-        //             data.emplace_back("temperature", atmo.temperature());
-        //         }
+        for (const Measurement& measurement: request->measurements()) {
+            const std::string& source = measurement.source_uid();
+            const influx::Timestamp timestamp = influx::Timestamp(std::chrono::seconds(measurement.timestamp()));
 
-        //         if (atmo.humidity() != 0) {
-        //             data.emplace_back("humidity", atmo.humidity());
-        //         }
+            if (measurement.has_atmosphere()) {
+                const AtmosphericMeasurements& atmo = measurement.atmosphere();
+                influx::Measurement record("atmo", timestamp);
+                record << influx::Tag("source", source);
 
-        //         if (not data.empty()) {
-        //             m_influx.Write({{"atmo", {{"domain", domain}, {"source", source}}, std::vector<influx::value_pair>(data), timestamp}});
-        //         }
-        //     }
+                if (atmo.temperature() != 0) {
+                    record << influx::Field("temperature", atmo.temperature());
+                }
 
-        //     if (measurement.has_solution()) {
-        //         const SolutionMeasurements& solution = measurement.solution();
-        //         std::vector<influx::value_pair> data;
+                if (atmo.humidity() != 0) {
+                    record << influx::Field("humidity", atmo.humidity());
+                }
 
-        //         if (solution.temperature() != 0) {
-        //             data.emplace_back("temperature", solution.temperature());
-        //         }
+                if (record.fields().size()) {
+                    bucket << record;
+                }
+            }
 
-        //         if (solution.flow() != 0) {
-        //             data.emplace_back("flow", solution.flow());
-        //         }
+            if (measurement.has_solution()) {
+                const SolutionMeasurements& solution = measurement.solution();
+                influx::Measurement record("solution", timestamp);
+                record << influx::Tag("source", source);
 
-        //         if (solution.ph() != 0) {
-        //             data.emplace_back("ph", solution.ph());
-        //         }
+                if (solution.temperature() != 0) {
+                    record << influx::Field("temperature", solution.temperature());
+                }
 
-        //         if (solution.ec() != 0) {
-        //             data.emplace_back("ec", solution.ec());
-        //         }
+                if (solution.flow() != 0) {
+                    record << influx::Field("flow", solution.flow());
+                }
 
-        //         if (not data.empty()) {
-        //             m_influx.Write({{"solution", {{"domain", domain}, {"source", source}}, std::vector<influx::value_pair>(data), timestamp}});
-        //         }
-        //     }
-        // }
+                if (solution.ph() != 0) {
+                    record << influx::Field("ph", solution.ph());
+                }
 
-        // m_influx.Flush();
+                if (solution.ec() != 0) {
+                    record << influx::Field("ec", solution.ec());
+                }
+
+                if (record.fields().size()) {
+                    bucket << record;
+                }
+            }
+        }
+
+        try {
+            bucket.Flush();
+        } catch (const std::exception& err) {
+            common::log::error({{"message", err.what()}});
+            return common::status::DATABASE_ERROR;
+        }
+
         return grpc::Status::OK;
     }
 
     grpc::Status GetMeasurements(grpc::ServerContext* context, const GetMeasurementsRequest* request, GetMeasurementsResponse* response) override {
-        // std::string domain;
-        // if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        //     return common::status::UNAUTHENTICATED;
-        // }
+        std::string domain;
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+            return common::status::UNAUTHENTICATED;
+        }
 
-        // std::ostringstream os;
-        // os << R"(from(bucket: "measurements"))" << std::endl;
-        // os << R"(  |> range(start: -4h))" << std::endl;
-        // os << R"(  |> filter(fn: (r) => r["_measurement"] == "atmo" or r["_measurement"] == "solution"))" << std::endl;
-        // os << R"(  |> filter(fn: (r) => r["_field"] == "ec" or r["_field"] == "flow" or r["_field"] == "humidity" or r["_field"] == "ph" or r["_field"] == "temperature"))" << std::endl;
-        // os << R"(  |> filter(fn: (r) => r["domain"] == ")" << domain << "\")" << std::endl;
-        // os << R"(  |> filter(fn: (r) => r["source"] == ")" << request->source_uid() << "\")" << std::endl;
-        // os << R"(  |> aggregateWindow(every: 5s, fn: mean, createEmpty: false))" << std::endl;
-        // os << R"(  |> yield(name: "mean"))" << std::endl;
-        // std::vector<influx::Point> points = m_influx.Query(os.str());
 
-        // std::map<std::chrono::time_point<std::chrono::high_resolution_clock>, Measurement> measurements;
-        // common::log::info({{"message", "parsing points"}, {"size", points.size()}});
-        // for (const auto& point : points) {
-        //     Measurement& m = measurements[point.time()];
+        // TODO: This is not great, maybe use {fmt}
+        std::ostringstream os;
+        os << "from(bucket: \"measurements-" << domain << "\")" << std::endl;
+        os << R"(  |> range(start: -4h))" << std::endl;
+        os << R"(  |> filter(fn: (r) => r["_measurement"] == "atmo" or r["_measurement"] == "solution"))" << std::endl;
+        os << R"(  |> filter(fn: (r) => r["_field"] == "ec" or r["_field"] == "flow" or r["_field"] == "humidity" or r["_field"] == "ph" or r["_field"] == "temperature"))" << std::endl;
+        os << R"(  |> filter(fn: (r) => r["source"] == ")" << request->source_uid() << "\")" << std::endl;
+        os << R"(  |> aggregateWindow(every: 5s, fn: mean, createEmpty: false))" << std::endl;
+        os << R"(  |> yield(name: "mean"))" << std::endl;
 
-        //     m.set_source_uid(request->source_uid());
-        //     m.set_timestamp(std::chrono::duration_cast<std::chrono::seconds>(point.time().time_since_epoch()).count());
+        try {
+            std::unordered_map<std::uint64_t, Measurement*> measurements;
+            auto result = influx_.Query(os.str());
+            for (const auto& table: result) { for (const auto& record: table) {
+                std::uint64_t ts = std::chrono::duration_cast<std::chrono::seconds>(record.time.time_since_epoch()).count();
+                Measurement* measurement = nullptr;
 
-        //     for (const auto& value : point.values()) {
-        //         if (value.first == "temperature") {
-        //             if (point.series() == "solution") {
-        //                 m.mutable_solution()->set_temperature(std::get<double>(value.second));
-        //             } else if (point.series() == "atmo") {
-        //                 m.mutable_atmosphere()->set_temperature(std::get<double>(value.second));
-        //             }
-        //         } else if (value.first == "humidity") {
-        //             m.mutable_atmosphere()->set_humidity(std::get<double>(value.second));
-        //         } else if (value.first == "ph") {
-        //             m.mutable_solution()->set_ph(std::get<double>(value.second));
-        //         } else if (value.first == "ec") {
-        //             m.mutable_solution()->set_ec(std::get<double>(value.second));
-        //         }
-        //     }
-        // }
+                if (measurements.contains(ts)) {
+                    measurement = measurements[ts];
+                } else {
+                    measurement = response->add_measurements();
+                    measurement->set_source_uid(request->source_uid());
+                    measurement->set_timestamp(ts);
+                    measurements[ts] = measurement;
+                }
 
-        // common::log::info({{"message", "building measurements response"}, {"size", measurements.size()}});
-        // for (auto it = measurements.begin(); it != measurements.end(); it++) {
-        //     if (not it->second.has_atmosphere() and not it->second.has_solution()) {
-        //         continue;
-        //     }
-        //     response->mutable_measurements()->Add(Measurement(it->second));
-        // }
+                if (record.measurement == "atmo") {
+                    if (record.field == "temperature") {
+                        measurement->mutable_atmosphere()->set_temperature(std::get<double>(record.value));
+                    } else if (record.field == "humidity") {
+                        measurement->mutable_atmosphere()->set_humidity(std::get<double>(record.value));
+                    }
+                } else if (record.measurement == "solution") {
+                    if (record.field == "flow") {
+                        measurement->mutable_solution()->set_flow(std::get<double>(record.value));
+                    } else if (record.field == "temperature") {
+                        measurement->mutable_solution()->set_temperature(std::get<double>(record.value));
+                    } else if (record.field == "ph") {
+                        measurement->mutable_solution()->set_ph(std::get<double>(record.value));
+                    } else if (record.field == "ec") {
+                        measurement->mutable_solution()->set_ec(std::get<double>(record.value));
+                    }
+                }
+            }}
+        } catch (const std::exception& err) {
+            common::log::error({{"message", err.what()}});
+            return common::status::DATABASE_ERROR;
+        }
 
-        // common::log::info({{"message", "returning measurements"}, {"size", response->measurements().size()}});
         return grpc::Status::OK;
     }
-};
 
+private:
+    influx::Influx influx_;
+};
 
 }
 
@@ -152,10 +184,16 @@ std::string readFile(const std::filesystem::path& path)
 
 int main(int argc, const char* argv[])
 {
+    if (argc <= 1) {
+        ganymede::common::log::error({{"message", "Missing configuration file argument"}});
+        return -1;
+    }
+
     ganymede::services::measurements::MeasurementsServiceConfig config;
     google::protobuf::util::JsonStringToMessage(readFile(argv[1]), &config);
 
-    ganymede::services::measurements::MeasurementsServiceImpl service;
+    influx::Influx influx(config.influxdb().host(), config.influxdb().organization(), config.influxdb().token());
+    ganymede::services::measurements::MeasurementsServiceImpl service(std::move(influx));
 
     grpc::ServerBuilder builder;
     builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());
