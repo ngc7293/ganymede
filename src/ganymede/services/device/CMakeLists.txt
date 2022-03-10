@@ -1,0 +1,21 @@
+project(ganymede.services.device VERSION 0.3.0)
+
+add_microservice(
+    NAME
+        device
+    HEADERS
+        device_service_impl.hh
+    SOURCES
+        device_service_impl.cc
+        main.cc
+    PROTO
+        device.proto
+        device.config.proto
+)
+
+target_link_libraries(ganymede.services.device
+    PUBLIC
+        ganymede.common.mongo
+        CONAN_PKG::mongo-cxx-driver
+        CONAN_PKG::mongo-c-driver
+)

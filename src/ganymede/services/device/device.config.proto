@@ -1,9 +1,9 @@
 syntax = "proto3";
 
-package ganymede.services.device_config;
+package ganymede.services.device;
 
-// ConfigService configuration object
-message DeviceConfigServiceConfig {
+// DeviceService configuration object
+message DeviceServiceConfig {
     message MongoDBConfig {
         string host = 1;
         string user = 2;

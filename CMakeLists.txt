@@ -7,9 +7,20 @@ include("${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
 conan_basic_setup(TARGETS)
 
 set(grpc_cpp_plugin_location "${CONAN_GRPC_ROOT}/bin/grpc_cpp_plugin")
+message("${grpc_cpp_plugin_location}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(GANYMEDE_GCP_PROJECT_ID ganymede-hydro)
+
+function(target_standard_compile_flags)
+    set(options )
+    set(oneValueArgs TARGET)
+    set(multiValueArgs FEATURES OPTIONS)
+    cmake_parse_arguments(TARGET_STANDARD_COMPILE_FLAGS "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    target_compile_features(${TARGET_STANDARD_COMPILE_FLAGS_TARGET} PUBLIC cxx_std_20 ${TARGET_STANDARD_COMPILE_FLAGS_FEATURES})
+    target_compile_options(${TARGET_STANDARD_COMPILE_FLAGS_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Werror ${TARGET_STANDARD_COMPILE_FLAGS_OPTIONS})
+endfunction()
 
 # add_microservice
 # Generic function to create a C++/gRPC/Docker microservice. Creates 2 targets,
@@ -32,10 +43,9 @@ function(add_microservice)
 
     add_executable(ganymede.services.${ADD_MICROSERVICE_NAME} ${ADD_MICROSERVICE_SOURCES} ${ADD_MICROSERVICE_HEADERS})
 
-    target_compile_features(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC cxx_std_17)
-    target_compile_options(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC -Wall -Wpedantic -Werror)
+    target_standard_compile_flags(TARGET ganymede.services.${ADD_MICROSERVICE_NAME})
     target_include_directories(ganymede.services.${ADD_MICROSERVICE_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}) # To include generated Protobuf/gRPC files
-    target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.proto ganymede.common)
+    target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.proto ganymede.common ganymede.common.auth)
 
     add_custom_target(
         ganymede.services.${ADD_MICROSERVICE_NAME}.docker
@@ -45,4 +55,4 @@ function(add_microservice)
 endfunction()
 
 add_subdirectory(libs)
-add_subdirectory(ganymede)
+add_subdirectory(src)

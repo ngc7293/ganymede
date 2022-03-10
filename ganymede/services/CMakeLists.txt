@@ -1,2 +1,0 @@
-add_subdirectory(device_config)
-add_subdirectory(measurements)

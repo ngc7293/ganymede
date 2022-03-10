@@ -5,12 +5,12 @@ name: ganymede.api.ganymede-hydro.cloud.goog
 title: Ganymede gRPC API
 
 apis:
-- name: ganymede.services.device_config.DeviceConfigService
+- name: ganymede.services.device.DeviceService
 - name: ganymede.services.measurements.MeasurementsService
 
 backend:
   rules:
-    - selector: "ganymede.services.device_config.*"
+    - selector: "ganymede.services.device.*"
       address: grpcs://ganymede-device-config-service-sjgdj4ediq-nn.a.run.app:443
 
     - selector: "ganymede.services.measurements.*"
