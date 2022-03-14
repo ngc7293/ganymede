@@ -26,12 +26,14 @@ endfunction()
 # Generic function to create a C++/gRPC/Docker microservice. Creates 2 targets,
 # one for the executable itself and another for the Docker container. Generated
 # targets are of the format
+#   `ganymede.services.<name>.proto`  (compiled protos)
+#   `ganymede.services.<name>.core`   (service implementation)
 #   `ganymede.services.<name>`        (executable)
 #   `ganymede.services.<name>.docker` (container)
 # Also sets some default compilation flags : std=c++17, -Wall, -Werror and -Wpedantic
 function(add_microservice)
     set(options )
-    set(oneValueArgs NAME)
+    set(oneValueArgs NAME MAIN)
     set(multiValueArgs SOURCES HEADERS PROTO)
     cmake_parse_arguments(ADD_MICROSERVICE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
 
@@ -41,11 +43,14 @@ function(add_microservice)
     protobuf_generate(TARGET ganymede.services.${ADD_MICROSERVICE_NAME}.proto LANGUAGE cpp)
     protobuf_generate(TARGET ganymede.services.${ADD_MICROSERVICE_NAME}.proto LANGUAGE grpc GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}")
 
-    add_executable(ganymede.services.${ADD_MICROSERVICE_NAME} ${ADD_MICROSERVICE_SOURCES} ${ADD_MICROSERVICE_HEADERS})
-
-    target_standard_compile_flags(TARGET ganymede.services.${ADD_MICROSERVICE_NAME})
-    target_include_directories(ganymede.services.${ADD_MICROSERVICE_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}) # To include generated Protobuf/gRPC files
-    target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.proto ganymede.common ganymede.common.auth)
+    add_library(ganymede.services.${ADD_MICROSERVICE_NAME}.core STATIC ${ADD_MICROSERVICE_SOURCES} ${ADD_MICROSERVICE_HEADERS})
+    target_standard_compile_flags(TARGET ganymede.services.${ADD_MICROSERVICE_NAME}.core)
+    target_include_directories(ganymede.services.${ADD_MICROSERVICE_NAME}.core PUBLIC ${CMAKE_CURRENT_BINARY_DIR}) # To include generated Protobuf/gRPC files
+    target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME}.core PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.proto ganymede.common ganymede.common.auth)
+    
+    add_executable(ganymede.services.${ADD_MICROSERVICE_NAME} ${ADD_MICROSERVICE_MAIN})
+    # target_include_directories(ganymede.services.${ADD_MICROSERVICE_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}) # To include generated Protobuf/gRPC files
+    target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME} PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.core)
 
     add_custom_target(
         ganymede.services.${ADD_MICROSERVICE_NAME}.docker

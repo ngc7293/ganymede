@@ -3,10 +3,13 @@ add_library(ganymede.common.mongo STATIC
     bson_serde.hh
     oid.hh
     oid.cc
+    protobuf_collection.cc
+    protobuf_collection.hh
 )
 
 target_link_libraries(ganymede.common.mongo
     PUBLIC
+        ganymede.common
         CONAN_PKG::grpc
         CONAN_PKG::mongo-cxx-driver
         CONAN_PKG::mongo-c-driver

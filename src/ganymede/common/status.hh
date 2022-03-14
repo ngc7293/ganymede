@@ -1,14 +1,15 @@
 #ifndef GANYMEDE_COMMON_STATUS_HH_
 #define GANYMEDE_COMMON_STATUS_HH_
 
-#include <grpc/status.h>
+#include <grpcpp/grpcpp.h>
 
 namespace ganymede::common::status {
 
-const grpc::Status& DATABASE_ERROR = grpc::Status(grpc::StatusCode::UNKNOWN, "database error");
-const grpc::Status& BAD_PAYLOAD = grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "bad payload");
-const grpc::Status& UNIMPLEMENTED = grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "not yet implemented");
-const grpc::Status& UNAUTHENTICATED = grpc::Status(grpc::StatusCode::UNAUTHENTICATED, "authentification error");
+extern const grpc::Status& DATABASE_ERROR;
+extern const grpc::Status& BAD_PAYLOAD;
+extern const grpc::Status& NOT_FOUND;
+extern const grpc::Status& UNIMPLEMENTED;
+extern const grpc::Status& UNAUTHENTICATED;
 
 }
 

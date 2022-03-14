@@ -7,15 +7,18 @@ add_microservice(
         device_service_impl.hh
     SOURCES
         device_service_impl.cc
+    MAIN
         main.cc
     PROTO
         device.proto
         device.config.proto
 )
 
-target_link_libraries(ganymede.services.device
+target_link_libraries(ganymede.services.device.core
     PUBLIC
         ganymede.common.mongo
         CONAN_PKG::mongo-cxx-driver
         CONAN_PKG::mongo-c-driver
 )
+
+add_subdirectory(tests)

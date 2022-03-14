@@ -8,7 +8,7 @@
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 
-namespace ganymede::mongo {
+namespace ganymede::common::mongo {
 
 bool MessageToBson(const google::protobuf::Message& message, bsoncxx::builder::basic::document& builder)
 {
@@ -22,6 +22,7 @@ bool MessageToBson(const google::protobuf::Message& message, bsoncxx::builder::b
         if (reflection.HasField(message, &field)) {
             switch (field.cpp_type()) {
                 default:
+                    assert(false);
                     return false;
 
                 case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
@@ -66,6 +67,7 @@ bool BsonToMessage(const bsoncxx::document::view& doc, google::protobuf::Message
         if (it != doc.end()) {
             switch (field->cpp_type()) {
                 default:
+                    assert(false);
                     return false;
 
                 case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:

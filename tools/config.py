@@ -12,7 +12,7 @@ from device_config_pb2_grpc import DeviceConfigServiceStub
 
 
 def hex_to_rgb(color):
-    return tuple(int(color[i:i+2], 16) for i in (0, 2, 4))
+    return tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
 
 
 def create_config(config, args):

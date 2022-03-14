@@ -14,6 +14,8 @@
 
 #include "device_service_impl.hh"
 
+#include <ganymede/common/mongo/protobuf_collection.hh>
+
 std::string makeMongoURI(const ganymede::services::device::DeviceServiceConfig::MongoDBConfig& config)
 {
     std::stringstream ss;
@@ -48,7 +50,7 @@ int main(int argc, const char* argv[])
     }
 
     ganymede::services::device::DeviceServiceConfig service_config;
-    if (!google::protobuf::util::JsonStringToMessage(readFile(argv[1]), &service_config).ok()) {
+    if (not google::protobuf::util::JsonStringToMessage(readFile(argv[1]), &service_config).ok()) {
         return -1;
     }
 
