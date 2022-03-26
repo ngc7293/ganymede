@@ -7,9 +7,9 @@
 
 #include <influx/influx.hh>
 
-#include <ganymede/common/auth/jwt.hh>
-#include <ganymede/common/log.hh>
-#include <ganymede/common/status.hh>
+#include <ganymede/api/result.hh>
+#include <ganymede/auth/jwt.hh>
+#include <ganymede/log/log.hh>
 
 #include "measurements.pb.h"
 #include "measurements.grpc.pb.h"
@@ -26,22 +26,22 @@ public:
 
     grpc::Status PushMeasurements(grpc::ServerContext* context, const PushMeasurementsRequest* request, Empty* /* response */) override {
         std::string domain;
-        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
-            return common::status::UNAUTHENTICATED;
+        if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
+            return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
         }
 
         influx::Bucket bucket;
         try {
             bucket = influx_["measurements-" + domain];
         } catch (const influx::InfluxRemoteError& err) {
-            common::log::error({{"message", err.what()}, {"code", err.statusCode()}});
+            log::error({{"message", err.what()}, {"code", err.statusCode()}});
         } catch (const std::exception& err) {
-            common::log::error({{"message", err.what()}});
+            log::error({{"message", err.what()}});
             return grpc::Status(grpc::StatusCode::INTERNAL, "");
         }
 
-        if (!bucket) {
-            return common::status::DATABASE_ERROR;
+        if (not bucket) {
+            return api::Result<void>(api::Status::INTERNAL);
         }
 
         for (const Measurement& measurement: request->measurements()) {
@@ -96,17 +96,17 @@ public:
         try {
             bucket.Flush();
         } catch (const std::exception& err) {
-            common::log::error({{"message", err.what()}});
-            return common::status::DATABASE_ERROR;
+            log::error({{"message", err.what()}});
+            return api::Result<void>(api::Status::INTERNAL);
         }
 
-        return grpc::Status::OK;
+        return api::Result<void>();
     }
 
     grpc::Status GetMeasurements(grpc::ServerContext* context, const GetMeasurementsRequest* request, GetMeasurementsResponse* response) override {
         std::string domain;
-        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
-            return common::status::UNAUTHENTICATED;
+        if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
+            return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
         }
 
 
@@ -155,11 +155,11 @@ public:
                 }
             }}
         } catch (const std::exception& err) {
-            common::log::error({{"message", err.what()}});
-            return common::status::DATABASE_ERROR;
+            log::error({{"message", err.what()}});
+            return api::Result<void>(api::Status::INTERNAL);
         }
 
-        return grpc::Status::OK;
+        return api::Result<void>();
     }
 
 private:
@@ -185,7 +185,7 @@ std::string readFile(const std::filesystem::path& path)
 int main(int argc, const char* argv[])
 {
     if (argc <= 1) {
-        ganymede::common::log::error({{"message", "Missing configuration file argument"}});
+        ganymede::log::error({{"message", "Missing configuration file argument"}});
         return -1;
     }
 
@@ -199,7 +199,7 @@ int main(int argc, const char* argv[])
     builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
 
-    ganymede::common::log::info({{"message", "listening on 0.0.0.0:3000"}});
+    ganymede::log::info({{"message", "listening on 0.0.0.0:3000"}});
 
     std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
     server->Wait();

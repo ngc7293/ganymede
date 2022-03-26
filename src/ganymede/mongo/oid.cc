@@ -1,8 +1,8 @@
 #include <bson/bson.h>
 
-#include <ganymede/common/mongo/oid.hh>
+#include <ganymede/mongo/oid.hh>
 
-namespace ganymede::common::mongo {
+namespace ganymede::mongo {
 
 bool ValidateIsOid(const std::string& id)
 {

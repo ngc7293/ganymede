@@ -1,11 +1,11 @@
-#ifndef GANYMEDE_COMMON_AUTH_JWT_HH_
-#define GANYMEDE_COMMON_AUTH_JWT_HH_
+#ifndef GANYMEDE__AUTH__JWT_HH_
+#define GANYMEDE__AUTH__JWT_HH_
 
 #include <string>
 
 #include <grpcpp/grpcpp.h>
 
-namespace ganymede::common::auth {
+namespace ganymede::auth {
 
 bool CheckJWTTokenAndGetDomain(const grpc::ServerContext* context, std::string& domain);
 

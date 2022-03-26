@@ -7,7 +7,9 @@
 
 #include <jwt/jwt.hpp>
 
-namespace ganymede::common::auth {
+#include "jwt.hh"
+
+namespace ganymede::auth {
 
 const char* AUTH0_PUB_KEY = R"(
 -----BEGIN PUBLIC KEY-----
@@ -68,9 +70,9 @@ std::string GetDomain(const jwt::jwt_object& token)
 
 bool CheckJWTTokenAndGetDomain(const grpc::ServerContext* context, std::string& domain)
 {
-    auto token = common::auth::GetJWTToken(context);
+    auto token = GetJWTToken(context);
     if (token.has_value()) {
-        domain = common::auth::GetDomain(token.value());
+        domain = GetDomain(token.value());
         return true;
     }
     return false;

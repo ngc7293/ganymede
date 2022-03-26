@@ -1,9 +1,9 @@
-#ifndef GANYMEDE_COMMON_LOG_HH_
-#define GANYMEDE_COMMON_LOG_HH_
+#ifndef GANYMEDE__LOG__LOG_HH_
+#define GANYMEDE__LOG__LOG_HH_
 
 #include <nlohmann/json.hpp>
 
-namespace ganymede::common::log {
+namespace ganymede::log {
 
 void error(nlohmann::json json);
 void warn(nlohmann::json json);

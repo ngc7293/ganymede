@@ -1,2 +1,5 @@
-add_subdirectory(common)
+add_subdirectory(api)
+add_subdirectory(auth)
+add_subdirectory(log)
+add_subdirectory(mongo)
 add_subdirectory(services)
