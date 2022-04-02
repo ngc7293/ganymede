@@ -1,0 +1,7 @@
+BasedOnStyle: WebKit
+ColumnLimit: 0
+CompactNamespaces: true
+IncludeBlocks: Preserve
+IndentWidth: 4
+NamespaceIndentation: None
+SpaceBeforeCpp11BracedList: false

@@ -19,4 +19,4 @@ std::string GetDocumentID(const bsoncxx::document::view_or_value& view)
     return OIDToString(view.view()["_id"].get_value());
 }
 
-}
+} // namespace ganymede::mongo

@@ -13,6 +13,6 @@ namespace ganymede::mongo {
 bool MessageToBson(const google::protobuf::Message& message, bsoncxx::builder::basic::document& builder);
 bool BsonToMessage(const bsoncxx::document::view& doc, google::protobuf::Message& message);
 
-}
+} // namespace ganymede::mongo
 
 #endif

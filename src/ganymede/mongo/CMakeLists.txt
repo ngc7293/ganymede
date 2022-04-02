@@ -18,3 +18,5 @@ target_link_libraries(ganymede.mongo
 )
 
 target_standard_compile_flags(TARGET ganymede.mongo)
+
+add_subdirectory(tests)

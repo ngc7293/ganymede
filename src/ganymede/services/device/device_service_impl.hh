@@ -10,9 +10,9 @@
 #include <mongocxx/client.hpp>
 #include <mongocxx/database.hpp>
 
-#include "device.pb.h"
-#include "device.grpc.pb.h"
 #include "device.config.pb.h"
+#include "device.grpc.pb.h"
+#include "device.pb.h"
 
 namespace ganymede::services::device {
 
@@ -39,6 +39,6 @@ private:
     std::unique_ptr<Priv> d;
 };
 
-}
+} // namespace ganymede::services::device
 
 #endif

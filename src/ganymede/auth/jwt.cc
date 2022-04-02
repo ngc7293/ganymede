@@ -1,5 +1,3 @@
-#include "jwt.hh"
-
 #include <optional>
 #include <string>
 
@@ -25,7 +23,8 @@ BwIDAQAB
 
 const char* TOKEN_DOMAIN_CLAIM = "https://davidbourgault.ca/domain";
 
-std::optional<jwt::jwt_object> GetJWTToken(const grpc::ServerContext* context)
+std::optional<jwt::jwt_object>
+GetJWTToken(const grpc::ServerContext* context)
 {
     std::string token;
 
@@ -49,12 +48,11 @@ std::optional<jwt::jwt_object> GetJWTToken(const grpc::ServerContext* context)
     std::error_code ec;
     jwt::jwt_object object = jwt::decode(
         token,
-        jwt::params::algorithms({"RS256"}),
+        jwt::params::algorithms({ "RS256" }),
         ec,
         jwt::params::secret(AUTH0_PUB_KEY),
         jwt::params::issuer("https://dev-ganymede.us.auth0.com/"),
-        jwt::params::aud("ganymede-api")
-    );
+        jwt::params::aud("ganymede-api"));
 
     if (ec) {
         return std::optional<jwt::jwt_object>();
@@ -63,7 +61,8 @@ std::optional<jwt::jwt_object> GetJWTToken(const grpc::ServerContext* context)
     }
 }
 
-std::string GetDomain(const jwt::jwt_object& token)
+std::string
+GetDomain(const jwt::jwt_object& token)
 {
     return token.payload().get_claim_value<std::string>(TOKEN_DOMAIN_CLAIM);
 }
@@ -78,4 +77,4 @@ bool CheckJWTTokenAndGetDomain(const grpc::ServerContext* context, std::string& 
     return false;
 }
 
-}
+} // namespace ganymede::auth

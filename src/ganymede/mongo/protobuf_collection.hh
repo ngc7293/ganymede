@@ -3,9 +3,9 @@
 
 #include <memory>
 
-#include <mongocxx/database.hpp>
-
 #include <google/protobuf/message.h>
+
+#include <mongocxx/database.hpp>
 
 #include <ganymede/api/result.hh>
 
@@ -13,7 +13,7 @@ namespace ganymede::mongo {
 
 class ProtobufCollectionUntyped {
 private:
-    template<class Message>
+    template <class Message>
     friend class ProtobufCollection;
 
     ProtobufCollectionUntyped() = delete;
@@ -32,12 +32,13 @@ private:
     api::Result<void> UpdateDocument(const std::string& oid, const std::string& domain, const google::protobuf::Message& message);
 
     api::Result<void> DeleteDocument(const std::string& oid, const std::string& domain);
+
 private:
     struct Priv;
     std::unique_ptr<Priv> d;
 };
 
-template<class Message>
+template <class Message>
 class ProtobufCollection {
 public:
     ProtobufCollection() = delete;
@@ -65,41 +66,35 @@ public:
 
     api::Result<Message> GetDocument(const std::string& oid, const std::string& domain)
     {
-        api::Result<Message> out{Message()};
+        api::Result<Message> out{ Message() };
         internal.GetDocument(oid, domain, out.value());
         return out;
     }
 
     api::Result<Message> GetDocument(const bsoncxx::document::view& filter)
     {
-        api::Result<Message> out{Message()};
+        api::Result<Message> out{ Message() };
         internal.GetDocument(filter, out.value());
         return out;
     }
 
-    api::Result<Message> CreateDocument(const std::string& domain, const Message& message)
+    api::Result<std::string> CreateDocument(const std::string& domain, const Message& message)
     {
-        api::Result<Message> out{Message()};
+        api::Result<Message> out{ Message() };
         auto result = internal.CreateDocument(domain, message);
-
-        if (result) {
-            internal.GetDocument(result.value(), domain, out.value());
-            return out;
-        } else {
-            return {result.status(), result.error()};
-        }
+        return result;
     }
 
     api::Result<Message> UpdateDocument(const std::string& oid, const std::string& domain, const Message& message)
     {
-        api::Result<Message> out{Message()};
+        api::Result<Message> out{ Message() };
         auto result = internal.UpdateDocument(oid, domain, message);
 
         if (result) {
             internal.GetDocument(oid, domain, out.value());
             return out;
         } else {
-            return {result.status(), result.error()};
+            return { result.status(), result.error() };
         }
     }
 
@@ -112,6 +107,6 @@ private:
     ProtobufCollectionUntyped internal;
 };
 
-}
+} // namespace ganymede::mongo
 
 #endif

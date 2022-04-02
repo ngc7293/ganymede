@@ -48,3 +48,12 @@ jobs:
           CC: gcc-11
           CXX: g++-11
         run: cmake --build . --config Release --parallel 2
+
+      - name: Create MongoDB container
+        run: |
+          docker pull mongodb:focal
+          docker run mongo:focal
+
+      - name: Test
+        working-directory: build
+        run: ctest --rerun-failed --output-on-failure

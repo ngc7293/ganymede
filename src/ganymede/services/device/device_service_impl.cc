@@ -1,12 +1,12 @@
 #include <memory>
-#include <string>
 #include <optional>
-
-#include <grpcpp/grpcpp.h>
+#include <string>
 
 #include <bsoncxx/builder/basic/document.hpp>
 
 #include <mongocxx/client.hpp>
+
+#include <grpcpp/grpcpp.h>
 
 #include <ganymede/api/status.hh>
 #include <ganymede/auth/jwt.hh>
@@ -19,7 +19,7 @@
 
 namespace {
 
-template<class MessageType>
+template <class MessageType>
 MessageType RemoveUIDFromMessage(const MessageType& message)
 {
     MessageType result(message);
@@ -49,7 +49,7 @@ bool ValidateIsMacAddress(const std::string& mac)
     return true;
 }
 
-}
+} // namespace
 
 namespace ganymede::services::device {
 
@@ -61,7 +61,7 @@ struct DeviceServiceImpl::Priv {
     mongo::ProtobufCollection<Config> configCollection;
 
     Priv(const std::string& mongo_uri)
-        : client(mongocxx::uri{mongo_uri})
+        : client(mongocxx::uri{ mongo_uri })
         , database(client["configurations"])
         , deviceCollection(database["device"])
         , configCollection(database["configurations"])
@@ -101,7 +101,8 @@ grpc::Status DeviceServiceImpl::AddDevice(grpc::ServerContext* context, const Ad
 
     auto result = d->deviceCollection.CreateDocument(domain, device);
     if (result) {
-        response->Swap(&result.value());
+        response->Swap(&device);
+        response->set_uid(result.value());
     }
 
     return result;
@@ -118,7 +119,7 @@ grpc::Status DeviceServiceImpl::GetDevice(grpc::ServerContext* context, const Ge
     bsoncxx::builder::basic::document filter;
     filter.append(bsoncxx::builder::basic::kvp("domain", domain));
 
-    switch(request->filter_case()) {
+    switch (request->filter_case()) {
     case GetDeviceRequest::kDeviceUid:
         if (mongo::ValidateIsOid(request->device_uid())) {
             filter.append(bsoncxx::builder::basic::kvp("_id", request->device_uid()));
@@ -136,7 +137,7 @@ grpc::Status DeviceServiceImpl::GetDevice(grpc::ServerContext* context, const Ge
     case GetDeviceRequest::FILTER_NOT_SET:
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "filter not set");
     }
-    
+
     auto result = d->deviceCollection.GetDocument(filter.view());
     if (result) {
         response->Swap(&result.value());
@@ -190,13 +191,14 @@ grpc::Status DeviceServiceImpl::CreateConfig(grpc::ServerContext* context, const
         return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
     }
 
-    if (not request->has_config()){
+    if (not request->has_config()) {
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
     }
 
     auto result = d->configCollection.CreateDocument(domain, RemoveUIDFromMessage(request->config()));
     if (result) {
-        response->Swap(&result.value());
+        response->CopyFrom(request->config());
+        response->set_uid(result.value());
     }
 
     return result;
@@ -205,7 +207,7 @@ grpc::Status DeviceServiceImpl::CreateConfig(grpc::ServerContext* context, const
 grpc::Status DeviceServiceImpl::GetConfig(grpc::ServerContext* context, const GetConfigRequest* request, Config* response)
 {
     std::string domain;
-    
+
     if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
         return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
     }
@@ -256,4 +258,4 @@ grpc::Status DeviceServiceImpl::DeleteConfig(grpc::ServerContext* context, const
     return d->configCollection.DeleteDocument(request->config_uid(), domain);
 }
 
-}
+} // namespace ganymede::services::device

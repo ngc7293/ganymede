@@ -11,8 +11,8 @@
 #include <ganymede/auth/jwt.hh>
 #include <ganymede/log/log.hh>
 
-#include "measurements.pb.h"
 #include "measurements.grpc.pb.h"
+#include "measurements.pb.h"
 #include "measurements.service_config.pb.h"
 
 namespace ganymede::services::measurements {
@@ -24,7 +24,8 @@ public:
     {
     }
 
-    grpc::Status PushMeasurements(grpc::ServerContext* context, const PushMeasurementsRequest* request, Empty* /* response */) override {
+    grpc::Status PushMeasurements(grpc::ServerContext* context, const PushMeasurementsRequest* request, Empty* /* response */) override
+    {
         std::string domain;
         if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
@@ -34,9 +35,9 @@ public:
         try {
             bucket = influx_["measurements-" + domain];
         } catch (const influx::InfluxRemoteError& err) {
-            log::error({{"message", err.what()}, {"code", err.statusCode()}});
+            log::error({ { "message", err.what() }, { "code", err.statusCode() } });
         } catch (const std::exception& err) {
-            log::error({{"message", err.what()}});
+            log::error({ { "message", err.what() } });
             return grpc::Status(grpc::StatusCode::INTERNAL, "");
         }
 
@@ -44,7 +45,7 @@ public:
             return api::Result<void>(api::Status::INTERNAL);
         }
 
-        for (const Measurement& measurement: request->measurements()) {
+        for (const Measurement& measurement : request->measurements()) {
             const std::string& source = measurement.source_uid();
             const influx::Timestamp timestamp = influx::Timestamp(std::chrono::seconds(measurement.timestamp()));
 
@@ -96,19 +97,19 @@ public:
         try {
             bucket.Flush();
         } catch (const std::exception& err) {
-            log::error({{"message", err.what()}});
+            log::error({ { "message", err.what() } });
             return api::Result<void>(api::Status::INTERNAL);
         }
 
         return api::Result<void>();
     }
 
-    grpc::Status GetMeasurements(grpc::ServerContext* context, const GetMeasurementsRequest* request, GetMeasurementsResponse* response) override {
+    grpc::Status GetMeasurements(grpc::ServerContext* context, const GetMeasurementsRequest* request, GetMeasurementsResponse* response) override
+    {
         std::string domain;
         if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
         }
-
 
         // TODO: This is not great, maybe use {fmt}
         std::ostringstream os;
@@ -123,39 +124,41 @@ public:
         try {
             std::unordered_map<std::uint64_t, Measurement*> measurements;
             auto result = influx_.Query(os.str());
-            for (const auto& table: result) { for (const auto& record: table) {
-                std::uint64_t ts = std::chrono::duration_cast<std::chrono::seconds>(record.time.time_since_epoch()).count();
-                Measurement* measurement = nullptr;
+            for (const auto& table : result) {
+                for (const auto& record : table) {
+                    std::uint64_t ts = std::chrono::duration_cast<std::chrono::seconds>(record.time.time_since_epoch()).count();
+                    Measurement* measurement = nullptr;
 
-                if (measurements.contains(ts)) {
-                    measurement = measurements[ts];
-                } else {
-                    measurement = response->add_measurements();
-                    measurement->set_source_uid(request->source_uid());
-                    measurement->set_timestamp(ts);
-                    measurements[ts] = measurement;
-                }
+                    if (measurements.contains(ts)) {
+                        measurement = measurements[ts];
+                    } else {
+                        measurement = response->add_measurements();
+                        measurement->set_source_uid(request->source_uid());
+                        measurement->set_timestamp(ts);
+                        measurements[ts] = measurement;
+                    }
 
-                if (record.measurement == "atmo") {
-                    if (record.field == "temperature") {
-                        measurement->mutable_atmosphere()->set_temperature(std::get<double>(record.value));
-                    } else if (record.field == "humidity") {
-                        measurement->mutable_atmosphere()->set_humidity(std::get<double>(record.value));
-                    }
-                } else if (record.measurement == "solution") {
-                    if (record.field == "flow") {
-                        measurement->mutable_solution()->set_flow(std::get<double>(record.value));
-                    } else if (record.field == "temperature") {
-                        measurement->mutable_solution()->set_temperature(std::get<double>(record.value));
-                    } else if (record.field == "ph") {
-                        measurement->mutable_solution()->set_ph(std::get<double>(record.value));
-                    } else if (record.field == "ec") {
-                        measurement->mutable_solution()->set_ec(std::get<double>(record.value));
+                    if (record.measurement == "atmo") {
+                        if (record.field == "temperature") {
+                            measurement->mutable_atmosphere()->set_temperature(std::get<double>(record.value));
+                        } else if (record.field == "humidity") {
+                            measurement->mutable_atmosphere()->set_humidity(std::get<double>(record.value));
+                        }
+                    } else if (record.measurement == "solution") {
+                        if (record.field == "flow") {
+                            measurement->mutable_solution()->set_flow(std::get<double>(record.value));
+                        } else if (record.field == "temperature") {
+                            measurement->mutable_solution()->set_temperature(std::get<double>(record.value));
+                        } else if (record.field == "ph") {
+                            measurement->mutable_solution()->set_ph(std::get<double>(record.value));
+                        } else if (record.field == "ec") {
+                            measurement->mutable_solution()->set_ec(std::get<double>(record.value));
+                        }
                     }
                 }
-            }}
+            }
         } catch (const std::exception& err) {
-            log::error({{"message", err.what()}});
+            log::error({ { "message", err.what() } });
             return api::Result<void>(api::Status::INTERNAL);
         }
 
@@ -166,7 +169,7 @@ private:
     influx::Influx influx_;
 };
 
-}
+} // namespace ganymede::services::measurements
 
 std::string readFile(const std::filesystem::path& path)
 {
@@ -181,11 +184,10 @@ std::string readFile(const std::filesystem::path& path)
     return content.str();
 }
 
-
 int main(int argc, const char* argv[])
 {
     if (argc <= 1) {
-        ganymede::log::error({{"message", "Missing configuration file argument"}});
+        ganymede::log::error({ { "message", "Missing configuration file argument" } });
         return -1;
     }
 
@@ -199,7 +201,7 @@ int main(int argc, const char* argv[])
     builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
 
-    ganymede::log::info({{"message", "listening on 0.0.0.0:3000"}});
+    ganymede::log::info({ { "message", "listening on 0.0.0.0:3000" } });
 
     std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
     server->Wait();

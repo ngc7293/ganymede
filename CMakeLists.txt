@@ -9,6 +9,9 @@ conan_basic_setup(TARGETS)
 set(grpc_cpp_plugin_location "${CONAN_GRPC_ROOT}/bin/grpc_cpp_plugin")
 message("${grpc_cpp_plugin_location}")
 
+enable_testing()
+find_package(GTest)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(GANYMEDE_GCP_PROJECT_ID ganymede-hydro)
 

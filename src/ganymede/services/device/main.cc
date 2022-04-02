@@ -1,27 +1,26 @@
 #include <filesystem>
 #include <fstream>
-#include <string>
 #include <sstream>
+#include <string>
 
 #include <google/protobuf/util/json_util.h>
+
 #include <grpcpp/grpcpp.h>
 
 #include <mongoc/mongoc.h>
-
 #include <mongocxx/instance.hpp>
 
 #include <ganymede/log/log.hh>
+#include <ganymede/mongo/protobuf_collection.hh>
 
 #include "device_service_impl.hh"
-
-#include <ganymede/mongo/protobuf_collection.hh>
 
 std::string makeMongoURI(const ganymede::services::device::DeviceServiceConfig::MongoDBConfig& config)
 {
     std::stringstream ss;
-    ss << "mongodb+srv://" 
-       << config.user() << ":" << config.password() 
-       << "@" << config.host() 
+    ss << "mongodb+srv://"
+       << config.user() << ":" << config.password()
+       << "@" << config.host()
        << "/" << config.database()
        << "?retryWrites=true&w=majority";
 
@@ -62,7 +61,7 @@ int main(int argc, const char* argv[])
     builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
 
-    ganymede::log::info({{"message", "listening on 0.0.0.0:3000"}});
+    ganymede::log::info({ { "message", "listening on 0.0.0.0:3000" } });
 
     std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
     server->Wait();
