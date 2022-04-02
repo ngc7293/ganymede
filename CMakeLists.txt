@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(ganymede VERSION 0.1.0)
 
+# Options
+option(COVERAGE "Compile and link for coverage analysis" OFF)
+
 # Import third parties
 include("${CMAKE_BINARY_DIR}/conan_paths.cmake")
 include("${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
@@ -23,6 +26,11 @@ function(target_standard_compile_flags)
 
     target_compile_features(${TARGET_STANDARD_COMPILE_FLAGS_TARGET} PUBLIC cxx_std_20 ${TARGET_STANDARD_COMPILE_FLAGS_FEATURES})
     target_compile_options(${TARGET_STANDARD_COMPILE_FLAGS_TARGET} PUBLIC -Wall -Wextra -Wpedantic -Werror ${TARGET_STANDARD_COMPILE_FLAGS_OPTIONS})
+
+    if(COVERAGE)
+        target_compile_options(${TARGET_STANDARD_COMPILE_FLAGS_TARGET} PUBLIC --coverage)
+        target_link_options(${TARGET_STANDARD_COMPILE_FLAGS_TARGET} PUBLIC --coverage)
+    endif()
 endfunction()
 
 # add_microservice
