@@ -113,6 +113,7 @@ bsoncxx::array::value ProtoRepeatedToBsonArray(const google::protobuf::Message& 
 
     default:
         assert(false);
+        return bsoncxx::builder::basic::array().extract();
     }
 }
 
