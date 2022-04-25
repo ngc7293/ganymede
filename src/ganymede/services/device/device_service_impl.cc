@@ -5,13 +5,13 @@
 #include <bsoncxx/builder/basic/document.hpp>
 
 #include <mongocxx/client.hpp>
+#include <mongocxx/collection.hpp>
+#include <mongocxx/database.hpp>
 
 #include <grpcpp/grpcpp.h>
 
 #include <ganymede/api/status.hh>
-#include <ganymede/auth/jwt.hh>
 #include <ganymede/log/log.hh>
-#include <ganymede/mongo/bson_serde.hh>
 #include <ganymede/mongo/oid.hh>
 #include <ganymede/mongo/protobuf_collection.hh>
 
@@ -60,17 +60,20 @@ struct DeviceServiceImpl::Priv {
     mongo::ProtobufCollection<Device> deviceCollection;
     mongo::ProtobufCollection<Config> configCollection;
 
-    Priv(const std::string& mongo_uri)
+    std::shared_ptr<auth::AuthValidator> authValidator;
+
+    Priv(const std::string& mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator)
         : client(mongocxx::uri{ mongo_uri })
         , database(client["configurations"])
-        , deviceCollection(database["device"])
+        , deviceCollection(database["devices"])
         , configCollection(database["configurations"])
+        , authValidator(authValidator)
     {
     }
 };
 
-DeviceServiceImpl::DeviceServiceImpl(std::string mongo_uri)
-    : d(new Priv(mongo_uri))
+DeviceServiceImpl::DeviceServiceImpl(std::string mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator)
+    : d(new Priv(mongo_uri, authValidator))
 {
     d->deviceCollection.CreateUniqueIndex(Device::kMacFieldNumber);
 }
@@ -81,10 +84,12 @@ DeviceServiceImpl::~DeviceServiceImpl()
 
 grpc::Status DeviceServiceImpl::AddDevice(grpc::ServerContext* context, const AddDeviceRequest* request, Device* response)
 {
-    std::string domain;
-    if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        return auth;
     }
+
+    const std::string& domain = auth.value().domain;
 
     if (not request->has_device()) {
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
@@ -110,11 +115,12 @@ grpc::Status DeviceServiceImpl::AddDevice(grpc::ServerContext* context, const Ad
 
 grpc::Status DeviceServiceImpl::GetDevice(grpc::ServerContext* context, const GetDeviceRequest* request, Device* response)
 {
-    std::string domain;
-
-    if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        return auth;
     }
+
+    const std::string& domain = auth.value().domain;
 
     bsoncxx::builder::basic::document filter;
     filter.append(bsoncxx::builder::basic::kvp("domain", domain));
@@ -153,10 +159,12 @@ grpc::Status DeviceServiceImpl::ListDevice(grpc::ServerContext* /* context */, c
 
 grpc::Status DeviceServiceImpl::UpdateDevice(grpc::ServerContext* context, const UpdateDeviceRequest* request, Device* response)
 {
-    std::string domain;
-    if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        return auth;
     }
+
+    const std::string& domain = auth.value().domain;
 
     if (not request->has_device()) {
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
@@ -176,20 +184,24 @@ grpc::Status DeviceServiceImpl::UpdateDevice(grpc::ServerContext* context, const
 
 grpc::Status DeviceServiceImpl::RemoveDevice(grpc::ServerContext* context, const RemoveDeviceRequest* request, Empty* /* response */)
 {
-    std::string domain;
-    if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        return auth;
     }
+
+    const std::string& domain = auth.value().domain;
 
     return d->deviceCollection.DeleteDocument(request->device_uid(), domain);
 }
 
 grpc::Status DeviceServiceImpl::CreateConfig(grpc::ServerContext* context, const CreateConfigRequest* request, Config* response)
 {
-    std::string domain;
-    if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        return auth;
     }
+
+    const std::string& domain = auth.value().domain;
 
     if (not request->has_config()) {
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
@@ -206,11 +218,12 @@ grpc::Status DeviceServiceImpl::CreateConfig(grpc::ServerContext* context, const
 
 grpc::Status DeviceServiceImpl::GetConfig(grpc::ServerContext* context, const GetConfigRequest* request, Config* response)
 {
-    std::string domain;
-
-    if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        return auth;
     }
+
+    const std::string& domain = auth.value().domain;
 
     if (auto result = d->configCollection.GetDocument(request->config_uid(), domain)) {
         response->Swap(&result.value());
@@ -228,10 +241,12 @@ grpc::Status DeviceServiceImpl::ListConfig(grpc::ServerContext* /* context */, c
 
 grpc::Status DeviceServiceImpl::UpdateConfig(grpc::ServerContext* context, const UpdateConfigRequest* request, Config* response)
 {
-    std::string domain;
-    if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        return auth;
     }
+
+    const std::string& domain = auth.value().domain;
 
     if (not request->has_config()) {
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
@@ -250,10 +265,12 @@ grpc::Status DeviceServiceImpl::UpdateConfig(grpc::ServerContext* context, const
 
 grpc::Status DeviceServiceImpl::DeleteConfig(grpc::ServerContext* context, const DeleteConfigRequest* request, Empty* /* response */)
 {
-    std::string domain;
-    if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-        return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        return auth;
     }
+
+    const std::string& domain = auth.value().domain;
 
     return d->configCollection.DeleteDocument(request->config_uid(), domain);
 }

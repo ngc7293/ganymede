@@ -8,7 +8,6 @@
 #include <grpcpp/grpcpp.h>
 
 #include <mongoc/mongoc.h>
-#include <mongocxx/instance.hpp>
 
 #include <ganymede/log/log.hh>
 #include <ganymede/mongo/protobuf_collection.hh>
@@ -54,8 +53,8 @@ int main(int argc, const char* argv[])
     }
 
     std::string mongo_uri = makeMongoURI(service_config.mongodb());
-    ganymede::services::device::DeviceServiceImpl service(mongo_uri);
-    mongocxx::instance instance{};
+    std::shared_ptr<ganymede::auth::AuthValidator> authValidator(new ganymede::auth::JwtAuthValidator());
+    ganymede::services::device::DeviceServiceImpl service(mongo_uri, authValidator);
 
     grpc::ServerBuilder builder;
     builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());

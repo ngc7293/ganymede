@@ -1,6 +1,6 @@
 add_library(ganymede.auth STATIC
-    jwt.cc
-    jwt.hh
+    auth_validator.cc
+    auth_validator.hh
 )
 
 target_link_libraries(ganymede.auth

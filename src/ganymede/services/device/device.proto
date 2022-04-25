@@ -93,31 +93,45 @@ message Device {
     string config_uid = 20;
 }
 
+message Time {
+    uint32 hour = 1;
+    uint32 minute = 2;
+    uint32 second = 3;
+}
+
+message PompConfig {
+    float flow = 1;        // In Liters per Minute
+}
+
+message SolutionConfig {
+    float ph = 1;          // [0-14]
+    float ec = 2;          // In ???
+    float temperature = 3; // In celsius
+}
+
+
+message Luminaire {
+    message DailySchedule {
+        Time start = 1;
+        Time stop = 2;
+    
+        uint32 intensity = 3; // 0-255. If use_pwm is false, any non-zero value will be interpreted as "fully-on"
+    }
+
+    uint32 port = 1;
+    bool use_pwm = 2;
+
+    repeated DailySchedule photo_period = 3;
+}
+
+message LightConfig {
+    repeated Luminaire luminaires = 1;
+}
 
 message Config {
-    message PompConfig {
-        float flow = 1;        // In Liters per Minute
-    }
-
-    message SolutionConfig {
-        float ph = 1;          // [0-14]
-        float ec = 2;          // In ???
-        float temperature = 3; // In celsius
-    }
-
-    message LightConfig {
-        message Color {
-            uint32 r = 1;       // 0-255
-            uint32 g = 2;       // 0-255
-            uint32 b = 3;       // 0-255
-        }
-
-        float intensity = 1;   // In Watts
-        Color color = 2;
-    }
-
     string uid = 1;
-    string name = 2;
+    string display_name = 2;
+    string timezone = 3;
 
     PompConfig     pomp_config     = 10;
     SolutionConfig solution_config = 11;

@@ -1,14 +1,9 @@
 #ifndef GANYMEDE__SERVICES__DEVICE__DEVICE_SERVICE_IMPL_HH_
 #define GANYMEDE__SERVICES__DEVICE__DEVICE_SERVICE_IMPL_HH_
 
-#include <optional>
-
 #include <grpcpp/grpcpp.h>
 
-#include <bsoncxx/builder/basic/document.hpp>
-
-#include <mongocxx/client.hpp>
-#include <mongocxx/database.hpp>
+#include <ganymede/auth/auth_validator.hh>
 
 #include "device.config.pb.h"
 #include "device.grpc.pb.h"
@@ -19,7 +14,7 @@ namespace ganymede::services::device {
 class DeviceServiceImpl final : public DeviceService::Service {
 public:
     DeviceServiceImpl() = delete;
-    DeviceServiceImpl(std::string mongo_uri);
+    DeviceServiceImpl(std::string mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator);
     ~DeviceServiceImpl();
 
     grpc::Status AddDevice(grpc::ServerContext* context, const AddDeviceRequest* request, Device* response) override;
