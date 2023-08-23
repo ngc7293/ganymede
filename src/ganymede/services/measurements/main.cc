@@ -8,7 +8,7 @@
 #include <influx/influx.hh>
 
 #include <ganymede/api/result.hh>
-#include <ganymede/auth/jwt.hh>
+#include <ganymede/auth/auth_validator.hh>
 #include <ganymede/log/log.hh>
 
 #include "measurements.grpc.pb.h"
@@ -19,17 +19,20 @@ namespace ganymede::services::measurements {
 
 class MeasurementsServiceImpl final : public MeasurementsService::Service {
 public:
-    MeasurementsServiceImpl(influx::Influx&& influx)
+    MeasurementsServiceImpl(influx::Influx&& influx, std::shared_ptr<auth::AuthValidator> authValidator)
         : influx_(influx)
+        , authValidator_(authValidator)
     {
     }
 
     grpc::Status PushMeasurements(grpc::ServerContext* context, const PushMeasurementsRequest* request, Empty* /* response */) override
     {
-        std::string domain;
-        if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-            return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+        auto auth = authValidator_->ValidateRequestAuth(*context);
+        if (not auth) {
+            return auth;
         }
+
+        const std::string& domain = auth.value().domain;
 
         influx::Bucket bucket;
         try {
@@ -106,10 +109,12 @@ public:
 
     grpc::Status GetMeasurements(grpc::ServerContext* context, const GetMeasurementsRequest* request, GetMeasurementsResponse* response) override
     {
-        std::string domain;
-        if (not auth::CheckJWTTokenAndGetDomain(context, domain)) {
-            return api::Result<void>(api::Status::UNAUTHENTICATED, "missing or invalid auth token");
+        auto auth = authValidator_->ValidateRequestAuth(*context);
+        if (not auth) {
+            return auth;
         }
+
+        const std::string& domain = auth.value().domain;
 
         // TODO: This is not great, maybe use {fmt}
         std::ostringstream os;
@@ -167,6 +172,7 @@ public:
 
 private:
     influx::Influx influx_;
+    std::shared_ptr<auth::AuthValidator> authValidator_;
 };
 
 } // namespace ganymede::services::measurements
@@ -195,7 +201,8 @@ int main(int argc, const char* argv[])
     google::protobuf::util::JsonStringToMessage(readFile(argv[1]), &config);
 
     influx::Influx influx(config.influxdb().host(), config.influxdb().organization(), config.influxdb().token());
-    ganymede::services::measurements::MeasurementsServiceImpl service(std::move(influx));
+    std::shared_ptr<ganymede::auth::AuthValidator> authValidator(new ganymede::auth::JwtAuthValidator());
+    ganymede::services::measurements::MeasurementsServiceImpl service(std::move(influx), authValidator);
 
     grpc::ServerBuilder builder;
     builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());
