@@ -11,9 +11,9 @@
 #include <ganymede/auth/auth_validator.hh>
 #include <ganymede/log/log.hh>
 
+#include "measurements.config.pb.h"
 #include "measurements.grpc.pb.h"
 #include "measurements.pb.h"
-#include "measurements.config.pb.h"
 
 namespace ganymede::services::measurements {
 
@@ -38,7 +38,7 @@ public:
         try {
             bucket = influx_["measurements-" + domain];
         } catch (const influx::InfluxRemoteError& err) {
-            log::error(err.what(), {{ "code", err.statusCode() } });
+            log::error(err.what(), { { "code", err.statusCode() } });
         } catch (const std::exception& err) {
             log::error(err.what());
             return grpc::Status(grpc::StatusCode::INTERNAL, "");

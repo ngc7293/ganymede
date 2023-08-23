@@ -7,9 +7,9 @@ namespace ganymede::log {
 
 enum class Level {
     INVALID = 0,
-    INFO    = 1,
+    INFO = 1,
     WARNING = 2,
-    ERROR   = 3
+    ERROR = 3
 };
 
 class LogSink {

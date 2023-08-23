@@ -15,7 +15,7 @@ Log& Log::get()
 
 void Log::Output(Level level, const std::string& message, const nlohmann::json& tags) const
 {
-    for (const auto& sink: sinks) {
+    for (const auto& sink : sinks) {
         if (sink) {
             sink->Output(level, message, tags);
         }
@@ -38,11 +38,11 @@ void StdIoLogSink::Output(Level level, const std::string& message, const nlohman
 
     auto& stream = (level <= Level::INFO ? std::cout : std::cerr);
     stream << "[" << rfc3339 << "] " << LOG_LEVEL_STR[static_cast<std::size_t>(level)] << ": " << message;
-    
+
     if (not json.empty()) {
         stream << " " << json.dump();
     }
-    
+
     stream << std::endl;
 }
 
