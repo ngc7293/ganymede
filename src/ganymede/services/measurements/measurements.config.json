@@ -1,8 +1,0 @@
-{
-    "influxdb": {
-        "host" : "",
-        "organization" : "",
-        "bucket" : "",
-        "token" : ""
-    }
-}

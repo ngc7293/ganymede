@@ -1,3 +1,0 @@
-[submodule "libs/influx"]
-	path = libs/influx
-	url = git@github.com:ngc7293/influx.git

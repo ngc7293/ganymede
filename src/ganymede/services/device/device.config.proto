@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-package ganymede.services.device;
-
-// DeviceService configuration object
-message DeviceServiceConfig {
-    string mongo_uri = 1; // default = "mongodb://mongo:27017/"
-}

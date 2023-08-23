@@ -1,0 +1,68 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: psotgres-pvc
+  labels:
+    app.kubernetes.io/name: postgres-pvc
+    app.kubernetes.io/component: database
+spec:
+  accessModes:
+  - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 4Gi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+      - name: database
+        image: postgres:15.3
+        ports:
+          - containerPort: 5432
+        resources:
+          requests:
+            cpu: 500m
+            memory: 256M
+          limits:
+            cpu: 2000m
+            memory: 1G
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: database
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  

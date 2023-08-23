@@ -1,11 +1,10 @@
 # Build artefacts
 __pycache__/
-_build/
-build/
-out/
+target/
 
 # Service configurations and secrets
-*.service_config.json
+Ganymede.toml
 
 # IDE configuration
 .vscode/
+.fleet/
