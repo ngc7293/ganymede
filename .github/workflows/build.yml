@@ -43,10 +43,10 @@ jobs:
         if: ${{ github.ref == 'refs/heads/develop' }}
         run: |
           docker tag ganymede ghcr.io/ngc7293/ganymede:latest
-          docker push --all-tags ghcr.io/ngc7293/ganymede:latest
+          docker push ghcr.io/ngc7293/ganymede:latest
 
       - name: Push stable (from main)
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
           docker tag ganymede ghcr.io/ngc7293/ganymede:stable
-          docker push --all-tags ghcr.io/ngc7293/ganymede:stable
+          docker push ghcr.io/ngc7293/ganymede:stable
