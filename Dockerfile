@@ -1,6 +1,6 @@
 FROM alpine:latest AS build
 
-RUN apk add cargo protobuf
+RUN apk add cargo protobuf protobuf-dev
 
 WORKDIR /build
 COPY src/ src/
