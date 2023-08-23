@@ -20,6 +20,7 @@ jobs:
           pip install conan
           conan config set general.revisions_enabled=1
           conan remote add davidbourgault https://artifactory.davidbourgault.ca/artifactory/api/conan/conan
+          conan user -p ${{ secrets.CONAN_PASSWORD }} -r davidbourgault david
 
       - name: Create directories
         run: mkdir build
@@ -30,6 +31,9 @@ jobs:
           CC: gcc-11
           CXX: g++-11
         run: conan install .. --update --build=missing -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s build_type=Release -r davidbourgault
+
+      - name: Upload
+        run: conan upload '*' --remote davidbourgault --all --confirm
 
       - name: Configure
         working-directory: build
