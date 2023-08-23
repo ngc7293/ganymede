@@ -1,43 +1,26 @@
 # Ganymede
 
-Collection of cloud-based services for smart agriculture/hydroponics.
+Web service(s) to manage automated hydroponics systems.
 
-## Contents
-
-- [Ganymede](#ganymede)
-  - [Contents](#contents)
-  - [Requirements](#requirements)
-  - [Building](#building)
-
-## Requirements
-
-- GCC 9 or later
-- CMake 3.17 or later
-- Ninja
-- Docker
-- Conan
+This started as a capstone project for my bachelors project, which I maintained
+for my personal use. While the initial version was implemented as multiple micro
+services implemented in C++, it was later reimplemented as a monolith in Rust.
 
 ## Building
 
-```bash
-# Don't change this path! It's used by CMakeLists to find Conan files
-mkdir cmake/conan
-cd cmake/conan
+This readme used to have a long list of steps to help you get compilation
+running, but now there's only two steps.
 
-# Install Conan depedencies. We need to make sure Conan install packages using the C++11 ABI
-# You can do this using profiles, or passing arguments as below
-conan install ../.. -s cppstd=17 -s compiler.libstdcxx=libstdc++11 -s Debug
+ - Make sure you have protoc in your `$PATH` (On Debians: `sudo apt install protobuf-compiler`)
+ - `cargo build`
 
-cd ..
-mkdir build
-cd build
-# Should now be in ganymede/cmake/build
+Thanks Rust :).
 
-# Build project
-cmake -G Ninja -D CMAKE_BUILD_TYPE=Debug ../..
-cmake --build . --target all
+## Deploying
 
-# Build Docker images
-cmake --build . --target ganymede.services.device_config.docker
-cmake --build . --target ganymede.services.measurements.docker
-```
+Files necessary for a full deployment are included in the `kubernetes/`
+subfolder. They are purposefully kept simple, and are designed with MicroK8s
+small-scale deployments in mind.
+
+The service expects requests to include a JWT from Auth0. For further details,
+and to update the claims name if needed, see `src/auth.rs`.
