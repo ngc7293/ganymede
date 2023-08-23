@@ -52,7 +52,7 @@ jobs:
       - name: Create MongoDB container
         run: |
           docker pull mongo:focal
-          docker run mongo:focal
+          docker run -d mongo:focal
 
       - name: Test
         working-directory: build
