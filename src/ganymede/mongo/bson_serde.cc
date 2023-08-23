@@ -248,12 +248,10 @@ bool BsonToMessage(const bsoncxx::document::view& doc, google::protobuf::Message
                     reflection.SetString(&message, field, std::string(it->get_utf8().value));
                     break;
 
-                case google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE:
-                    {
-                        auto nested = reflection.MutableMessage(&message, field);
-                        BsonToMessage(it->get_document().value, *nested);
-                    }
-                    break;
+                case google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE: {
+                    auto nested = reflection.MutableMessage(&message, field);
+                    BsonToMessage(it->get_document().value, *nested);
+                } break;
 
                 default:
                     assert(false);
