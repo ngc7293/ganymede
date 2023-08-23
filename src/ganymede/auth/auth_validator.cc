@@ -16,21 +16,14 @@ BwIDAQAB
 -----END PUBLIC KEY-----
 )";
 
+const char* TOKEN_ISSUER = "https://dev-ganymede.us.auth0.com/";
 const char* TOKEN_DOMAIN_CLAIM = "https://davidbourgault.ca/domain";
 
 api::Result<jwt::jwt_object> GetJWTToken(const grpc::ServerContext& context)
 {
     std::string token;
 
-    // Google API Gatewat adds it's own authorization JWT, but preservers the
-    // original token in this header
-    // TODO: This could probably simplified with a ifdef NDEBUG check
-    auto authorization = context.client_metadata().find("x-forwarded-authorization");
-
-    // We also check for the simple authorization header (for testing)
-    if (authorization == context.client_metadata().end()) {
-        authorization = context.client_metadata().find("authorization");
-    }
+    auto authorization = context.client_metadata().find("authorization");
 
     if (authorization != context.client_metadata().end()) {
         token = std::string(authorization->second.data(), authorization->second.length());
@@ -47,7 +40,7 @@ api::Result<jwt::jwt_object> GetJWTToken(const grpc::ServerContext& context)
         jwt::params::algorithms({ "RS256" }),
         ec,
         jwt::params::secret(AUTH0_PUB_KEY),
-        jwt::params::issuer("https://dev-ganymede.us.auth0.com/"),
+        jwt::params::issuer(TOKEN_ISSUER),
         jwt::params::aud("ganymede-api"));
 
     if (ec) {

@@ -25,10 +25,9 @@ RUN apt-get update
 RUN apt-get -y install ca-certificates
 
 COPY --from=build /var/build/build/bin/ /opt/bin/
-COPY src/ganymede/services/device/device.config.json /opt/var/
 
 ENV PORT=3000
 
 EXPOSE ${PORT}
 WORKDIR /opt/
-ENTRYPOINT ["./bin/ganymede.services.device", "./var/device.config.json"]
+ENTRYPOINT ["bin/ganymede.services.device", "var/device.config.json"]

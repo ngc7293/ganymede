@@ -1,3 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: device-configmap
+  labels:
+    app.kubernetes.io/name: device
+    app.kubernetes.io/component: app
+data:
+  device.config.json: |
+    {}
+
+---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,6 +42,13 @@ spec:
           limits:
             cpu: 500m
             memory: 512M
+        volumeMounts:
+        - name: config-volume
+          mountPath: /opt/var
+      volumes:
+      - name: config-volume
+        configMap:
+          name: device-configmap
 
 ---
 

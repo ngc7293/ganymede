@@ -4,5 +4,5 @@ package ganymede.services.device;
 
 // DeviceService configuration object
 message DeviceServiceConfig {
-    string mongo_uri = 1;
+    string mongo_uri = 1; // default = "mongodb://mongo:27017/"
 }

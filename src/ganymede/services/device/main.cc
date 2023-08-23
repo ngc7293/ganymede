@@ -11,12 +11,21 @@
 
 #include <mongoc/mongoc.h>
 
+#include <ganymede/api/result.hh>
 #include <ganymede/log/log.hh>
 #include <ganymede/mongo/protobuf_collection.hh>
 
 #include "device_service_impl.hh"
 
-std::string readFile(const std::filesystem::path& path)
+namespace {
+
+void InitGlobals()
+{
+    mongoc_init();
+    ganymede::log::Log::get().AddSink(std::make_unique<ganymede::log::StdIoLogSink>());
+}
+
+std::string ReadFile(const std::filesystem::path& path)
 {
     std::ostringstream content("");
     std::ifstream ifs(path);
@@ -29,24 +38,52 @@ std::string readFile(const std::filesystem::path& path)
     return content.str();
 }
 
-void init_globals()
+ganymede::api::Result<ganymede::services::device::DeviceServiceConfig> BuildConfig(const std::vector<std::string>& args)
 {
-    mongoc_init();
-    ganymede::log::Log::get().AddSink(std::make_unique<ganymede::log::StdIoLogSink>());
+    ganymede::services::device::DeviceServiceConfig config;
+
+    if (args.size() == 2) {
+        if (not std::filesystem::is_regular_file(args[1])) {
+            return { ganymede::api::Status::INVALID_ARGUMENT, "No such file: '" + args[1] + "'" };
+        } else if (not google::protobuf::util::JsonStringToMessage(ReadFile(args[1]), &config).ok()) {
+            return { ganymede::api::Status::INVALID_ARGUMENT, "Failed to parse file: '" + args[1] + "'" };
+        }
+    }
+
+    if (config.mongo_uri().empty()) {
+        config.set_mongo_uri("mongodb://mongo:27017/");
+    }
+
+    return { std::move(config) };
 }
+
+nlohmann::json ConfigAsJson(const ganymede::services::device::DeviceServiceConfig& config)
+{
+    std::string serialized;
+    google::protobuf::util::MessageToJsonString(config, &serialized);
+    return nlohmann::json::parse(serialized);
+}
+
+} // anonymous namespace
 
 int main(int argc, const char* argv[])
 {
-    init_globals();
+    InitGlobals();
 
-    if (argc < 2) {
+    std::vector<std::string> args;
+    for (int i = 0; i < argc; i++) {
+        args.emplace_back(argv[i]);
+    }
+
+    auto result = BuildConfig(args);
+
+    if (not result) {
+        ganymede::log::error("could not build config: " + result.error());
         return -1;
     }
 
-    ganymede::services::device::DeviceServiceConfig service_config;
-    if (not google::protobuf::util::JsonStringToMessage(readFile(argv[1]), &service_config).ok()) {
-        return -1;
-    }
+    auto service_config = result.value();
+    ganymede::log::info("effective config", { { "config", ConfigAsJson(service_config) } });
 
     std::shared_ptr<ganymede::auth::AuthValidator> authValidator(new ganymede::auth::JwtAuthValidator());
     ganymede::services::device::DeviceServiceImpl service(service_config.mongo_uri(), authValidator);
