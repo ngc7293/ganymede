@@ -1,5 +1,6 @@
 add_executable(ganymede.mongo.test
     main.cc
+    test_bson_serde.cc
     test_protobuf_collection.cc
     test.proto
 )

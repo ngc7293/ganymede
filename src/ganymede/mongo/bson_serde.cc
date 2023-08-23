@@ -29,6 +29,14 @@ bool MessageToBson(const google::protobuf::Message& message, bsoncxx::builder::b
                 builder.append(bsoncxx::builder::basic::kvp(field_tag, reflection.GetFloat(message, &field)));
                 break;
 
+            case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
+                builder.append(bsoncxx::builder::basic::kvp(field_tag, reflection.GetDouble(message, &field)));
+                break;
+
+            case google::protobuf::FieldDescriptor::CPPTYPE_BOOL:
+                builder.append(bsoncxx::builder::basic::kvp(field_tag, reflection.GetBool(message, &field)));
+                break;
+
             case google::protobuf::FieldDescriptor::CPPTYPE_UINT32:
                 builder.append(bsoncxx::builder::basic::kvp(field_tag, (std::int64_t)reflection.GetUInt32(message, &field)));
                 break;
@@ -76,6 +84,14 @@ bool BsonToMessage(const bsoncxx::document::view& doc, google::protobuf::Message
 
             case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
                 reflection.SetFloat(&message, field, (float)it->get_double().value);
+                break;
+
+            case google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
+                reflection.SetDouble(&message, field, it->get_double().value);
+                break;
+
+            case google::protobuf::FieldDescriptor::CPPTYPE_BOOL:
+                reflection.SetBool(&message, field, it->get_bool().value);
                 break;
 
             case google::protobuf::FieldDescriptor::CPPTYPE_UINT32:

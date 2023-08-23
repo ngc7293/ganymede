@@ -59,7 +59,7 @@ bool ProtobufCollectionUntyped::CreateUniqueIndex(int fieldNumber)
 
 api::Result<void> ProtobufCollectionUntyped::Contains(const bsoncxx::document::view& filter)
 {
-    return d->collection.count_documents(filter) ? api::Status::OK : api::Status::INVALID_ARGUMENT;
+    return d->collection.count_documents(filter) ? api::Status::OK : api::Status::NOT_FOUND;
 }
 
 api::Result<void> ProtobufCollectionUntyped::GetDocument(const std::string& oid, const std::string& domain, google::protobuf::Message& output)
@@ -113,7 +113,7 @@ api::Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::st
         return api::Status::INTERNAL;
     }
 
-    return { OIDToString(result->inserted_id()) };
+    return { result->inserted_id().get_oid().value.to_string() };
 }
 
 api::Result<void> ProtobufCollectionUntyped::UpdateDocument(const std::string& oid, const std::string& domain, const google::protobuf::Message& message)

@@ -67,22 +67,20 @@ public:
     api::Result<Message> GetDocument(const std::string& oid, const std::string& domain)
     {
         api::Result<Message> out{ Message() };
-        internal.GetDocument(oid, domain, out.value());
-        return out;
+        auto result = internal.GetDocument(oid, domain, out.value());
+        return result ? api::Result<Message>(out) : api::Result<Message>(result.status(), result.error());
     }
 
     api::Result<Message> GetDocument(const bsoncxx::document::view& filter)
     {
         api::Result<Message> out{ Message() };
-        internal.GetDocument(filter, out.value());
-        return out;
+        auto result = internal.GetDocument(filter, out.value());
+        return result ? api::Result<Message>(out) : api::Result<Message>(result.status(), result.error());
     }
 
     api::Result<std::string> CreateDocument(const std::string& domain, const Message& message)
     {
-        api::Result<Message> out{ Message() };
-        auto result = internal.CreateDocument(domain, message);
-        return result;
+        return internal.CreateDocument(domain, message);
     }
 
     api::Result<Message> UpdateDocument(const std::string& oid, const std::string& domain, const Message& message)
