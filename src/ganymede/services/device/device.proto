@@ -4,11 +4,11 @@ package ganymede.services.device;
 
 // Service definition
 service DeviceService {
-    rpc AddDevice(AddDeviceRequest) returns (Device);
+    rpc CreateDevice(CreateDeviceRequest) returns (Device);
     rpc UpdateDevice(UpdateDeviceRequest) returns (Device);
     rpc GetDevice(GetDeviceRequest) returns (Device);
     rpc ListDevice(ListDeviceRequest) returns (ListDeviceResponse);
-    rpc RemoveDevice(RemoveDeviceRequest) returns (Empty);
+    rpc DeleteDevice(DeleteDeviceRequest) returns (Empty);
 
     rpc CreateConfig(CreateConfigRequest) returns (Config);
     rpc UpdateConfig(UpdateConfigRequest) returns (Config);
@@ -18,7 +18,7 @@ service DeviceService {
 }
 
 // Requests and responses
-message AddDeviceRequest {
+message CreateDeviceRequest {
     Device device = 1;
 }
 
@@ -44,7 +44,7 @@ message ListDeviceResponse {
     repeated Device devices = 1;
 }
 
-message RemoveDeviceRequest {
+message DeleteDeviceRequest {
     string device_uid = 1;
     string reason = 2;
 }
@@ -84,11 +84,21 @@ message Empty { }
 
 // Primitive message types
 message Device {
+    // Output only.
     string uid = 1;
+
     string mac = 2;
 
-    string name = 10;
+    // Required.
+    string display_name = 10;
+
     string description = 11;
+
+    // Device timezone in IANA <zone>/<city> format
+    string timezone = 12;
+
+    // Output only. Current device's offset from UTC (including DST if applicable)
+    int64 timezone_offset_minutes = 13;
 
     string config_uid = 20;
 }
@@ -99,23 +109,31 @@ message Time {
     uint32 second = 3;
 }
 
+// Sets target values for the solution flow
 message PompConfig {
-    float flow = 1;        // In Liters per Minute
+    // In Liters per Minute
+    float flow = 1;
 }
 
+// Sets target values for the solution
 message SolutionConfig {
-    float ph = 1;          // [0-14]
-    float ec = 2;          // In ???
-    float temperature = 3; // In celsius
-}
+    // [0-14]
+    float ph = 1;
 
+    // In ???
+    float ec = 2;
+
+    // In Celsius
+    float temperature = 3;
+}
 
 message Luminaire {
     message DailySchedule {
         Time start = 1;
         Time stop = 2;
-    
-        uint32 intensity = 3; // 0-255. If use_pwm is false, any non-zero value will be interpreted as "fully-on"
+
+        // 0-255. If use_pwm is false, any non-zero value will be interpreted as "fully-on"
+        uint32 intensity = 3; 
     }
 
     uint32 port = 1;
@@ -129,9 +147,10 @@ message LightConfig {
 }
 
 message Config {
+    // Output only.
     string uid = 1;
+
     string display_name = 2;
-    string timezone = 3;
 
     PompConfig     pomp_config     = 10;
     SolutionConfig solution_config = 11;

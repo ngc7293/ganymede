@@ -1,6 +1,9 @@
+#include <chrono>
 #include <memory>
 #include <optional>
 #include <string>
+
+#include <date/tz.h>
 
 #include <bsoncxx/builder/basic/document.hpp>
 
@@ -62,27 +65,75 @@ struct DeviceServiceImpl::Priv {
 
     std::shared_ptr<auth::AuthValidator> authValidator;
 
-    Priv(const std::string& mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator)
+    std::function<std::chrono::system_clock::time_point()> now;
+
+    Priv(const std::string& mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator, std::function<std::chrono::system_clock::time_point()> now)
         : client(mongocxx::uri{ mongo_uri })
         , database(client["configurations"])
         , deviceCollection(database["devices"])
         , configCollection(database["configurations"])
         , authValidator(authValidator)
+        , now(now)
     {
     }
 };
 
-DeviceServiceImpl::DeviceServiceImpl(std::string mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator)
-    : d(new Priv(mongo_uri, authValidator))
+DeviceServiceImpl::DeviceServiceImpl(std::string mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator, std::function<std::chrono::system_clock::time_point()> now)
+    : d(new Priv(mongo_uri, authValidator, now))
 {
+    date::get_tzdb();
     d->deviceCollection.CreateUniqueIndex(Device::kMacFieldNumber);
+}
+
+DeviceServiceImpl::DeviceServiceImpl(DeviceServiceImpl&& other)
+{
+    d.swap(other.d);
 }
 
 DeviceServiceImpl::~DeviceServiceImpl()
 {
 }
 
-grpc::Status DeviceServiceImpl::AddDevice(grpc::ServerContext* context, const AddDeviceRequest* request, Device* response)
+Device DeviceServiceImpl::SanitizeInputDevice(const Device& input) const
+{
+    Device device = RemoveUIDFromMessage(input);
+    device.clear_timezone_offset_minutes();
+    return device;
+}
+
+api::Result<void> DeviceServiceImpl::ValidateInputDevice(const Device& input, const std::string& domain) const
+{
+    if (input.mac().empty() or not ValidateIsMacAddress(input.mac())) {
+        return api::Result<void>(api::Status::INVALID_ARGUMENT, "missing or invalid mac address");
+    }
+
+    if (not input.timezone().empty()) {
+        try {
+            date::get_tzdb().locate_zone(input.timezone());
+        } catch (const std::runtime_error& err) {
+            return { api::Status::INVALID_ARGUMENT, "unknown timezone" };
+        }
+    }
+
+    if (not d->configCollection.Contains(input.config_uid(), domain)) {
+        return api::Result<void>(api::Status::NOT_FOUND, "no such config");
+    }
+
+    return {};
+}
+
+Device& DeviceServiceImpl::ComputeOutputDevice(Device& device) const
+{
+    if (not device.timezone().empty()) {
+        const auto tz = date::get_tzdb().locate_zone(device.timezone());
+        const auto offset = tz->get_info(d->now()).offset;
+        device.set_timezone_offset_minutes(std::chrono::duration_cast<std::chrono::minutes>(offset).count());
+    }
+
+    return device;
+}
+
+grpc::Status DeviceServiceImpl::CreateDevice(grpc::ServerContext* context, const CreateDeviceRequest* request, Device* response)
 {
     auto auth = d->authValidator->ValidateRequestAuth(*context);
     if (not auth) {
@@ -95,18 +146,15 @@ grpc::Status DeviceServiceImpl::AddDevice(grpc::ServerContext* context, const Ad
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
     }
 
-    Device device = RemoveUIDFromMessage(request->device());
-    if (device.mac().empty() or not ValidateIsMacAddress(device.mac())) {
-        return api::Result<void>(api::Status::INVALID_ARGUMENT, "missing or invalid mac address");
-    }
-
-    if (not d->configCollection.Contains(request->device().config_uid(), domain)) {
-        return api::Result<void>(api::Status::NOT_FOUND, "no such config");
+    Device device = SanitizeInputDevice(request->device());
+    auto validation = ValidateInputDevice(device, domain);
+    if (not validation) {
+        return validation;
     }
 
     auto result = d->deviceCollection.CreateDocument(domain, device);
     if (result) {
-        response->Swap(&device);
+        response->Swap(&ComputeOutputDevice(device));
         response->set_uid(result.value());
     }
 
@@ -146,7 +194,7 @@ grpc::Status DeviceServiceImpl::GetDevice(grpc::ServerContext* context, const Ge
 
     auto result = d->deviceCollection.GetDocument(filter.view());
     if (result) {
-        response->Swap(&result.value());
+        response->Swap(&(ComputeOutputDevice(result.value())));
     }
 
     return result;
@@ -170,19 +218,21 @@ grpc::Status DeviceServiceImpl::UpdateDevice(grpc::ServerContext* context, const
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
     }
 
-    if (not d->configCollection.Contains(request->device().config_uid(), domain)) {
-        return api::Result<void>(api::Status::NOT_FOUND, "no such config");
+    Device device = SanitizeInputDevice(request->device());
+    auto validation = ValidateInputDevice(device, domain);
+    if (not validation) {
+        return validation;
     }
 
-    auto result = d->deviceCollection.UpdateDocument(request->device().config_uid(), domain, RemoveUIDFromMessage(request->device()));
+    auto result = d->deviceCollection.UpdateDocument(request->device().config_uid(), domain, device);
     if (result) {
-        response->Swap(&result.value());
+        response->Swap(&(ComputeOutputDevice(result.value())));
     }
 
     return result;
 }
 
-grpc::Status DeviceServiceImpl::RemoveDevice(grpc::ServerContext* context, const RemoveDeviceRequest* request, Empty* /* response */)
+grpc::Status DeviceServiceImpl::DeleteDevice(grpc::ServerContext* context, const DeleteDeviceRequest* request, Empty* /* response */)
 {
     auto auth = d->authValidator->ValidateRequestAuth(*context);
     if (not auth) {

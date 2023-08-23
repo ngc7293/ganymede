@@ -10,17 +10,25 @@
 #include <mongocxx/database.hpp>
 
 #include <ganymede/services/device/device_service_impl.hh>
+#include <ganymede/testing/mock_auth_validator.hh>
+#include <ganymede/testing/service_test.hh>
 
-class MockAuthValidator : public ganymede::auth::AuthValidator {
-    ganymede::api::Result<ganymede::auth::AuthData> ValidateRequestAuth(const grpc::ServerContext&) const override
-    {
-        ganymede::auth::AuthData data{ "testdomain" };
-        return { std::move(data) };
-    }
-};
-
-class DeviceServiceTest : public ::testing::Test {
+class DeviceServiceTest : public ganymede::testing::ServiceTest<ganymede::services::device::DeviceServiceImpl> {
 public:
+    DeviceServiceTest()
+        : ServiceTest({ "mongodb://localhost:27017/", std::shared_ptr<ganymede::auth::AuthValidator>(new ganymede::testing::MockAuthValidator()), [this]() { return now(); } })
+    {
+    }
+
+    std::string MakeConfig()
+    {
+        ganymede::services::device::CreateConfigRequest request;
+        (void)request.mutable_config();
+
+        auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateConfig, request);
+        return result.value().uid();
+    }
+
     void TearDown() override
     {
         // Remove all documents from database after each test case
@@ -33,12 +41,7 @@ public:
     }
 
 protected:
-    ganymede::services::device::DeviceServiceImpl service{ "mongodb://localhost:27017/", std::shared_ptr<ganymede::auth::AuthValidator>(new MockAuthValidator()) };
+    std::function<std::chrono::system_clock::time_point()> now{ std::chrono::system_clock::now };
 };
-
-std::unique_ptr<grpc::ServerContext> ServerContext()
-{
-    return std::make_unique<grpc::ServerContext>();
-}
 
 #endif
