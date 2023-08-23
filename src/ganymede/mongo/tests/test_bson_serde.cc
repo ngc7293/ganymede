@@ -79,7 +79,6 @@ TEST(BsonSerdeTest, should_serialize_repeated_field)
         R"({ "30" : [ "alpha", "bravo", "charlie", "delta" ] })");
 }
 
-
 TEST(BsonSerdeTest, should_deserialize_repeated_field)
 {
     auto input = bsoncxx::from_json(R"({ "30" : [ "alpha", "bravo", "charlie", "delta" ] })");
