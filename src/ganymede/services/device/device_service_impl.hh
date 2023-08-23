@@ -13,6 +13,11 @@ namespace ganymede::services::device {
 
 class DeviceServiceImpl final : public DeviceService::Service {
 public:
+    static constexpr char DATABASE_NAME[] = "configurations";
+    static constexpr char DEVICE_COLLECTION_NAME[] = "devices";
+    static constexpr char CONFIG_COLLECTION_NAME[] = "configurations";
+
+public:
     DeviceServiceImpl() = delete;
     DeviceServiceImpl(DeviceServiceImpl&& other); // Used in testing
     DeviceServiceImpl(std::string mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator, std::function<std::chrono::system_clock::time_point()> now = std::chrono::system_clock::now);

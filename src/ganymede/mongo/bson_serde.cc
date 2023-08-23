@@ -202,16 +202,16 @@ bool BsonToMessage(const bsoncxx::document::view& doc, google::protobuf::Message
             continue;
         }
 
+        if (field->name() == "uid") {
+            reflection.SetString(&message, field, doc["_id"].get_oid().value.to_string());
+        }
+
         bsoncxx::document::view::const_iterator it = doc.find(std::to_string(field->number()));
         if (it != doc.end()) {
             if (field->is_repeated()) {
                 FillProtoFromBsonArray(message, reflection, *field, it->get_array());
             } else {
                 switch (field->cpp_type()) {
-                default:
-                    assert(false);
-                    return false;
-
                 case google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
                     reflection.SetFloat(&message, field, (float)it->get_double().value);
                     break;
@@ -249,9 +249,15 @@ bool BsonToMessage(const bsoncxx::document::view& doc, google::protobuf::Message
                     break;
 
                 case google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE:
-                    auto nested = reflection.MutableMessage(&message, field);
-                    BsonToMessage(it->get_document().value, *nested);
+                    {
+                        auto nested = reflection.MutableMessage(&message, field);
+                        BsonToMessage(it->get_document().value, *nested);
+                    }
                     break;
+
+                default:
+                    assert(false);
+                    return false;
                 }
             }
         }

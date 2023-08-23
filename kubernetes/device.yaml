@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
       - name: device
-        image: ghcr.io/ngc7293/ganymede/device.service:0.3.4
+        image: ghcr.io/ngc7293/ganymede/device.service:latest
         ports:
           - containerPort: 3000
         resources:

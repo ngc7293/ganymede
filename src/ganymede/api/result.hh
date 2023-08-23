@@ -45,6 +45,8 @@ public:
     const Value&& value() const&& { return value_.value(); }
 
 private:
+    friend class Result<void>;
+
     std::optional<Value> value_;
     api::Status status_;
     std::string error_;
@@ -55,6 +57,13 @@ class Result<void> {
 public:
     Result()
         : status_(api::Status::OK)
+    {
+    }
+
+    template <typename T>
+    Result(Result<T>&& other)
+        : status_(other.status_)
+        , error_(other.error_)
     {
     }
 
