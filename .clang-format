@@ -1,4 +1,5 @@
 BasedOnStyle: WebKit
+# AlignAfterOpenBracket: BlockIndent (Requires clang-format 14)
 ColumnLimit: 0
 CompactNamespaces: true
 IncludeBlocks: Preserve

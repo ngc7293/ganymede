@@ -1,12 +1,12 @@
 [requires]
 cpp-jwt/1.4
-grpc/1.37.1
-gtest/1.11.0
-libcurl/7.80.0
-mongo-c-driver/1.17.6
-mongo-cxx-driver/3.6.6
-nlohmann_json/3.10.5
-openssl/1.1.1m
+grpc/1.47.1
+gtest/1.12.1
+libcurl/7.84.0
+mongo-c-driver/1.22.0
+mongo-cxx-driver/3.6.7
+nlohmann_json/3.11.1
+openssl/1.1.1q
 date/3.0.1
 
 [generators]

@@ -18,7 +18,7 @@ const int MONGO_UNIQUE_KEY_VIOLATION = 11000;
 bsoncxx::document::value BuildIDAndDomainFilter(const std::string& id, const std::string& domain)
 {
     bsoncxx::builder::basic::document builder{};
-    builder.append(bsoncxx::builder::basic::kvp("_id", bsoncxx::oid(bsoncxx::stdx::string_view(id))));
+    builder.append(bsoncxx::builder::basic::kvp("_id", bsoncxx::oid(id)));
     builder.append(bsoncxx::builder::basic::kvp("domain", domain));
     return builder.extract();
 }
@@ -82,7 +82,7 @@ api::Result<void> ProtobufCollectionUntyped::GetDocument(const bsoncxx::document
         return api::Status::OK;
     }
 
-    return api::Status::NOT_FOUND;
+    return { api::Status::NOT_FOUND, "no such resource" };
 }
 
 api::Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::string& domain, const google::protobuf::Message& message)

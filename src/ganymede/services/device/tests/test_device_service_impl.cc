@@ -23,7 +23,6 @@ TEST_F(DeviceServiceTest, should_add_config)
 TEST_F(DeviceServiceTest, should_add_device)
 {
     ganymede::services::device::CreateDeviceRequest request;
-
     request.mutable_device()->set_uid("charliedelta");
     request.mutable_device()->set_config_uid(MakeConfig());
     request.mutable_device()->set_display_name("my device");
@@ -35,10 +34,28 @@ TEST_F(DeviceServiceTest, should_add_device)
     EXPECT_EQ(result.value().mac(), request.device().mac());
 }
 
+TEST_F(DeviceServiceTest, should_get_device)
+{
+    ganymede::services::device::CreateDeviceRequest create_request;
+    create_request.mutable_device()->set_uid("charliedelta");
+    create_request.mutable_device()->set_config_uid(MakeConfig());
+    create_request.mutable_device()->set_display_name("my device");
+    create_request.mutable_device()->set_mac("00:00:00:00:00:00");
+
+    auto create_result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, create_request);
+
+    ganymede::services::device::GetDeviceRequest request;
+    request.set_device_uid(create_result.value().uid());
+
+    auto result = Call(&ganymede::services::device::DeviceServiceImpl::GetDevice, request);
+    EXPECT_NE(result.value().uid(), create_request.device().uid());
+    EXPECT_EQ(result.value().display_name(), create_request.device().display_name());
+    EXPECT_EQ(result.value().mac(), create_request.device().mac());
+}
+
 TEST_F(DeviceServiceTest, should_refuse_invalid_timezone)
 {
     ganymede::services::device::CreateDeviceRequest request;
-
     request.mutable_device()->set_config_uid(MakeConfig());
     request.mutable_device()->set_mac("00:00:00:00:00:00");
     request.mutable_device()->set_timezone("Rohan/Edoras");
@@ -53,7 +70,6 @@ TEST_F(DeviceServiceTest, should_return_timezone_offset)
 
     {
         ganymede::services::device::CreateDeviceRequest request;
-
         request.mutable_device()->set_config_uid(MakeConfig());
         request.mutable_device()->set_mac("00:00:00:00:00:00");
         request.mutable_device()->set_timezone("America/Montreal");
@@ -63,7 +79,6 @@ TEST_F(DeviceServiceTest, should_return_timezone_offset)
     }
     {
         ganymede::services::device::CreateDeviceRequest request;
-
         request.mutable_device()->set_config_uid(MakeConfig());
         request.mutable_device()->set_mac("00:00:00:00:00:01");
         request.mutable_device()->set_timezone("Europe/Berlin");
@@ -76,7 +91,6 @@ TEST_F(DeviceServiceTest, should_return_timezone_offset)
 TEST_F(DeviceServiceTest, should_refuse_add_device_if_no_such_config)
 {
     ganymede::services::device::CreateDeviceRequest request;
-
     request.mutable_device()->set_config_uid("wigwam");
     request.mutable_device()->set_mac("00:00:00:00:00:00");
 

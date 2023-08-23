@@ -176,7 +176,7 @@ grpc::Status DeviceServiceImpl::GetDevice(grpc::ServerContext* context, const Ge
     switch (request->filter_case()) {
     case GetDeviceRequest::kDeviceUid:
         if (mongo::ValidateIsOid(request->device_uid())) {
-            filter.append(bsoncxx::builder::basic::kvp("_id", request->device_uid()));
+            filter.append(bsoncxx::builder::basic::kvp("_id", bsoncxx::oid(request->device_uid())));
         } else {
             return api::Result<void>(api::Status::INVALID_ARGUMENT, "invalid device uid");
         }
