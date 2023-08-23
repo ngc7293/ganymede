@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
+
 package ganymede.v2;
 
 // Service definition
@@ -8,13 +10,13 @@ service DeviceService {
     rpc UpdateDevice(UpdateDeviceRequest) returns (Device);
     rpc GetDevice(GetDeviceRequest) returns (Device);
     rpc ListDevice(ListDeviceRequest) returns (ListDeviceResponse);
-    rpc DeleteDevice(DeleteDeviceRequest) returns (Empty);
+    rpc DeleteDevice(DeleteDeviceRequest) returns (google.protobuf.Empty);
 
     rpc CreateConfig(CreateConfigRequest) returns (Config);
     rpc UpdateConfig(UpdateConfigRequest) returns (Config);
     rpc GetConfig(GetConfigRequest) returns (Config);
     rpc ListConfig(ListConfigRequest) returns (ListConfigResponse);
-    rpc DeleteConfig(DeleteConfigRequest) returns (Empty);
+    rpc DeleteConfig(DeleteConfigRequest) returns (google.protobuf.Empty);
 }
 
 // Requests and responses
@@ -79,8 +81,6 @@ message DeleteConfigRequest {
 message DeleteConfigResponse {
 
 }
-
-message Empty { }
 
 // Primitive message types
 message Device {

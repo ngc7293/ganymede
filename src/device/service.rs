@@ -12,18 +12,18 @@ use super::device::errors::DeviceError;
 use super::device::model::DeviceModel;
 use super::device::operations::{DeviceFilter, UniqueDeviceFilter};
 
-pub struct DeviceServiceImpl {
+pub struct DeviceService {
     dbpool: sqlx::Pool<sqlx::Postgres>,
 }
 
-impl DeviceServiceImpl {
+impl DeviceService {
     pub fn new(pool: sqlx::Pool<sqlx::Postgres>) -> Self {
-        DeviceServiceImpl { dbpool: pool }
+        DeviceService { dbpool: pool }
     }
 }
 
 #[tonic::async_trait]
-impl ganymede::v2::device_service_server::DeviceService for DeviceServiceImpl {
+impl ganymede::v2::device_service_server::DeviceService for DeviceService {
     async fn create_device(
         &self,
         request: Request<ganymede::v2::CreateDeviceRequest>,
@@ -136,7 +136,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceServiceImpl {
     async fn delete_device(
         &self,
         request: Request<ganymede::v2::DeleteDeviceRequest>,
-    ) -> Result<Response<ganymede::v2::Empty>, Status> {
+    ) -> Result<Response<()>, Status> {
         let domain_id = authenticate(&request)?;
         let database = DomainDatabase::new(&self.dbpool, domain_id);
 
@@ -148,7 +148,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceServiceImpl {
         };
 
         database.delete_device(&device_id).await?;
-        Ok(Response::new(ganymede::v2::Empty {}))
+        Ok(Response::new(()))
     }
 
     async fn create_config(
@@ -230,7 +230,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceServiceImpl {
     async fn delete_config(
         &self,
         request: Request<ganymede::v2::DeleteConfigRequest>,
-    ) -> Result<Response<ganymede::v2::Empty>, Status> {
+    ) -> Result<Response<()>, Status> {
         let domain_id = authenticate(&request)?;
         let database = DomainDatabase::new(&self.dbpool, domain_id);
 
@@ -241,6 +241,6 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceServiceImpl {
         };
 
         database.delete_config(&config_id).await?;
-        Ok(Response::new(ganymede::v2::Empty {}))
+        Ok(Response::new(()))
     }
 }

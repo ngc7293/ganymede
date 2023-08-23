@@ -1,13 +1,17 @@
 use sqlx::postgres::PgPoolOptions;
 use tonic::transport::Server;
 
-use crate::device::service::DeviceServiceImpl;
+use crate::device::service::DeviceService;
 use ganymede::v2::device_service_server::DeviceServiceServer;
+
+use crate::measurements::service::MeasurementsService;
+use ganymede::v2::measurements_service_server::MeasurementsServiceServer;
 
 pub mod auth;
 pub mod device;
 pub mod ganymede;
 pub mod types;
+pub mod measurements;
 
 #[derive(serde::Deserialize)]
 struct Settings {
@@ -47,11 +51,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             err
         })?;
 
-    let device = DeviceServiceImpl::new(postgres);
+    let device = DeviceService::new(postgres);
+    let measurements = MeasurementsService::new();
 
     Server::builder()
         .add_service(reflection)
         .add_service(DeviceServiceServer::new(device))
+        .add_service(MeasurementsServiceServer::new(measurements))
         .serve(addr)
         .await?;
 

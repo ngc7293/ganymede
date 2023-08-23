@@ -22,7 +22,10 @@ impl From<DeviceError> for tonic::Status {
             DeviceError::MacConflict => {
                 tonic::Status::invalid_argument("mac address already in use")
             }
-            DeviceError::DatabaseError(_) => tonic::Status::internal("internal error"),
+            DeviceError::DatabaseError(err) => {
+                log::error!("{err}");
+                tonic::Status::internal("internal error")
+            },
         }
     }
 }

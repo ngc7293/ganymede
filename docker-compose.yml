@@ -1,5 +1,5 @@
 volumes:
-  dbdata:
+  pg-data:
 
 services:
   ganymede:
@@ -9,13 +9,13 @@ services:
     volumes:
       - ./Ganymede.toml:/app/Ganymede.toml
 
-  database:
+  postgres:
     image: postgres:15.3
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ganymede
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - dbdata:/var/lib/postgresql/data
+      - pg-data:/var/lib/postgresql/data
     ports:
         - 5432:5432
