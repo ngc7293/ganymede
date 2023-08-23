@@ -183,7 +183,7 @@ grpc::Status DeviceServiceImpl::GetDevice(grpc::ServerContext* context, const Ge
         break;
     case GetDeviceRequest::kDeviceMac:
         if (ValidateIsMacAddress(request->device_mac())) {
-            filter.append(bsoncxx::builder::basic::kvp(std::to_string(GetDeviceRequest::kDeviceMacFieldNumber), request->device_mac()));
+            filter.append(bsoncxx::builder::basic::kvp(std::to_string(Device::kMacFieldNumber), request->device_mac()));
         } else {
             return api::Result<void>(api::Status::INVALID_ARGUMENT, "invalid device mac");
         }
@@ -200,9 +200,43 @@ grpc::Status DeviceServiceImpl::GetDevice(grpc::ServerContext* context, const Ge
     return result;
 }
 
-grpc::Status DeviceServiceImpl::ListDevice(grpc::ServerContext* /* context */, const ListDeviceRequest* /* request */, ListDeviceResponse* /* response */)
+grpc::Status DeviceServiceImpl::ListDevice(grpc::ServerContext* context, const ListDeviceRequest* request, ListDeviceResponse* response)
 {
-    return api::Result<void>(api::Status::UNIMPLEMENTED);
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        return auth;
+    }
+
+    const std::string& domain = auth.value().domain;
+
+    bsoncxx::builder::basic::document filter;
+    filter.append(bsoncxx::builder::basic::kvp("domain", domain));
+
+    switch (request->filter_case()) {
+    case ListDeviceRequest::kNameFilter: {
+        bsoncxx::builder::basic::document name_filter;
+        name_filter.append(bsoncxx::builder::basic::kvp(std::string("$regex"), request->name_filter()));
+        filter.append(bsoncxx::builder::basic::kvp(std::to_string(Device::kDisplayNameFieldNumber), name_filter.extract()));
+    } break;
+    case ListDeviceRequest::kConfigUid: {
+        if (d->configCollection.Contains(request->config_uid(), domain)) {
+            filter.append(bsoncxx::builder::basic::kvp(std::to_string(Device::kConfigUidFieldNumber), request->config_uid()));
+        } else {
+            return api::Result<void>(api::Status::NOT_FOUND, "no such config");
+        }
+    } break;
+    case ListDeviceRequest::FILTER_NOT_SET:
+        break;
+    }
+
+    auto result = d->deviceCollection.ListDocuments(filter.view());
+    if (result) {
+        for (auto& device : result.value()) {
+            response->add_devices()->Swap(&(ComputeOutputDevice(device)));
+        }
+    }
+
+    return result;
 }
 
 grpc::Status DeviceServiceImpl::UpdateDevice(grpc::ServerContext* context, const UpdateDeviceRequest* request, Device* response)

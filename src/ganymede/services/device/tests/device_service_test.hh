@@ -39,9 +39,9 @@ public:
         return result.value().uid();
     }
 
-    void TearDown() override
+    void SetUp() override
     {
-        // Remove all documents from database after each test case
+        // Remove all documents from database before each test case
         mongocxx::client client{ mongocxx::uri{ "mongodb://localhost:27017/" } };
         auto devices = client["configurations"]["devices"];
         auto configs = client["configurations"]["configurations"];

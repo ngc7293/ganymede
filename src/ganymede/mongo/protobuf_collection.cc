@@ -75,7 +75,12 @@ api::Result<void> ProtobufCollectionUntyped::GetDocument(const bsoncxx::document
 {
     bsoncxx::stdx::optional<bsoncxx::document::value> result;
 
-    result = d->collection.find_one(filter);
+    try {
+        result = d->collection.find_one(filter);
+    } catch (const mongocxx::exception& e) {
+        log::error(e.what());
+        return api::Status::INTERNAL;
+    }
 
     if (result) {
         BsonToMessage(result.value(), output);
@@ -83,6 +88,27 @@ api::Result<void> ProtobufCollectionUntyped::GetDocument(const bsoncxx::document
     }
 
     return { api::Status::NOT_FOUND, "no such resource" };
+}
+
+api::Result<void> ProtobufCollectionUntyped::ListDocuments(const bsoncxx::document::view& filter, std::function<google::protobuf::Message&()> add_cb)
+{
+    if (not add_cb) {
+        log::error("add_cb not set in Listdocuments");
+        return api::Status::INTERNAL;
+    }
+
+    try {
+        mongocxx::cursor results = d->collection.find(filter);
+
+        for (const auto& result : results) {
+            BsonToMessage(result, add_cb());
+        }
+
+        return api::Status::OK;
+    } catch (const mongocxx::exception& e) {
+        log::error(e.what());
+        return api::Status::INTERNAL;
+    }
 }
 
 api::Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::string& domain, const google::protobuf::Message& message)

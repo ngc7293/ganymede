@@ -1,6 +1,7 @@
 #ifndef GANYMEDE__MONGO__PROTOBUF_COLLECTION_HH_
 #define GANYMEDE__MONGO__PROTOBUF_COLLECTION_HH_
 
+#include <functional>
 #include <memory>
 
 #include <google/protobuf/message.h>
@@ -27,6 +28,8 @@ private:
 
     api::Result<void> GetDocument(const std::string& oid, const std::string& domain, google::protobuf::Message& output);
     api::Result<void> GetDocument(const bsoncxx::document::view& filter, google::protobuf::Message& output);
+
+    api::Result<void> ListDocuments(const bsoncxx::document::view& filter, std::function<google::protobuf::Message&()> add_cb);
 
     api::Result<std::string> CreateDocument(const std::string& domain, const google::protobuf::Message& message);
     api::Result<void> UpdateDocument(const std::string& oid, const std::string& domain, const google::protobuf::Message& message);
@@ -76,6 +79,13 @@ public:
         api::Result<Message> out{ Message() };
         auto result = internal.GetDocument(filter, out.value());
         return result ? api::Result<Message>(out) : api::Result<Message>(result.status(), result.error());
+    }
+
+    api::Result<std::vector<Message>> ListDocuments(const bsoncxx::document::view& filter)
+    {
+        api::Result<std::vector<Message>> out{ std::vector<Message>() };
+        auto result = internal.ListDocuments(filter, [&]() -> google::protobuf::Message& { return out.value().emplace_back(); });
+        return result ? api::Result<std::vector<Message>>(out) : api::Result<std::vector<Message>>(result.status(), result.error());
     }
 
     api::Result<std::string> CreateDocument(const std::string& domain, const Message& message)
