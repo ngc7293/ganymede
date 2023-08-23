@@ -1,8 +1,9 @@
+#include <filesystem>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <string>
-#include <memory>
-#include <filesystem>
+#include <optional>
 
 #include <google/protobuf/util/json_util.h>
 #include <grpcpp/grpcpp.h>
@@ -76,7 +77,7 @@ bool ValidateIsMacAddress(const std::string& mac)
 
     for (const char& c : mac) {
         bool valid = ++count % 3 ? std::isxdigit(c) : (c == ':');
-        if (not valid) {
+        if (!valid) {
             return false;
         }
     }
@@ -112,29 +113,29 @@ public:
 
     grpc::Status AddDevice(grpc::ServerContext* context, const AddDeviceRequest* request, Device* response) override {
         std::string domain;
-        if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return common::status::UNAUTHENTICATED;
         }
 
-        if (not request->has_device()) {
+        if (!request->has_device()) {
             return common::status::BAD_PAYLOAD;
         }
 
         Device device = RemoveUIDFromMessage(request->device());
 
-        if (device.mac().empty() or (not ValidateIsMacAddress(device.mac()))) {
+        if (device.mac().empty() || (!ValidateIsMacAddress(device.mac()))) {
             return common::status::BAD_PAYLOAD;
         }
 
-        if (not device.config_uid().empty())
-            if (not (ValidateIsOid(device.config_uid()) and CheckIfExistInMongo(m_config_collection, BuildIDAndDomainFilter(device.config_uid(), domain)))) {
+        if (!device.config_uid().empty())
+            if (!(ValidateIsOid(device.config_uid()) && CheckIfExistInMongo(m_config_collection, BuildIDAndDomainFilter(device.config_uid(), domain)))) {
             return common::status::BAD_PAYLOAD;
         }
 
         std::string id;
         auto builder = DocumentWithDomain(domain);
 
-        if (not MessageToBson(device, builder)) {
+        if (!MessageToBson(device, builder)) {
             return common::status::UNIMPLEMENTED;
         }
 
@@ -146,8 +147,8 @@ public:
             return status.value();
         }
 
-        if (not FetchFromMongo<Device>(m_device_collection, BuildIDAndDomainFilter(id, domain), response)) {
-            common::log::error({{"message", "inserted device but could not fetch it back"}});
+        if (!FetchFromMongo<Device>(m_device_collection, BuildIDAndDomainFilter(id, domain), response)) {
+            common::log::error({{"message", "inserted device but could !fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
 
@@ -157,7 +158,7 @@ public:
     grpc::Status GetDevice(grpc::ServerContext* context, const GetDeviceRequest* request, Device* response) override {
         std::string domain;
 
-        if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return common::status::UNAUTHENTICATED;
         }
 
@@ -182,7 +183,7 @@ public:
                 return common::status::BAD_PAYLOAD;
             }
 
-            if (not FetchFromMongo<Device>(m_device_collection, filter.view(), response)) {
+            if (!FetchFromMongo<Device>(m_device_collection, filter.view(), response)) {
                 return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
             }
         } catch (const mongocxx::exception& e) {
@@ -199,29 +200,29 @@ public:
 
     grpc::Status UpdateDevice(grpc::ServerContext* context, const UpdateDeviceRequest* request, Device* response) override {
         std::string domain;
-        if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return common::status::UNAUTHENTICATED;
         }
 
-        if (not request->has_device()) {
+        if (!request->has_device()) {
             return common::status::BAD_PAYLOAD;
         }
 
         std::string id = request->device().uid();
         const Device& device = RemoveUIDFromMessage(request->device());
 
-        if (not ValidateIsOid(id)) {
+        if (!ValidateIsOid(id)) {
             return common::status::BAD_PAYLOAD;
         }
 
-        if (not device.config_uid().empty())
-            if (not (ValidateIsOid(device.config_uid()) and CheckIfExistInMongo(m_config_collection, BuildIDAndDomainFilter(device.config_uid(), domain)))) {
+        if (!device.config_uid().empty())
+            if (!(ValidateIsOid(device.config_uid()) && CheckIfExistInMongo(m_config_collection, BuildIDAndDomainFilter(device.config_uid(), domain)))) {
             return common::status::BAD_PAYLOAD;
         }
 
         auto builder = bsoncxx::builder::basic::document{};
         auto nested = bsoncxx::builder::basic::document{};
-        if (not MessageToBson(device, nested)) {
+        if (!MessageToBson(device, nested)) {
             return common::status::UNIMPLEMENTED;
         }
         builder.append(bsoncxx::builder::basic::kvp("$set", nested));
@@ -234,12 +235,12 @@ public:
             return common::status::DATABASE_ERROR;
         }
 
-        if (not result or result.value().modified_count() == 0) {
+        if (!result || result.value().modified_count() == 0) {
             return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
         }
 
-        if (not FetchFromMongo<Device>(m_device_collection, BuildIDAndDomainFilter(id, domain), response)) {
-            common::log::error({{"message", "updated config but could not fetch it back"}});
+        if (!FetchFromMongo<Device>(m_device_collection, BuildIDAndDomainFilter(id, domain), response)) {
+            common::log::error({{"message", "updated config but could !fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
         return grpc::Status::OK;
@@ -247,11 +248,11 @@ public:
 
     grpc::Status RemoveDevice(grpc::ServerContext* context, const RemoveDeviceRequest* request, Empty* response) override {
         std::string domain;
-        if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return common::status::UNAUTHENTICATED;
         }
 
-        if (not ValidateIsOid(request->device_uid())) {
+        if (!ValidateIsOid(request->device_uid())) {
             return common::status::BAD_PAYLOAD;
         }
 
@@ -264,7 +265,7 @@ public:
             return common::status::DATABASE_ERROR;
         }
 
-        if (not result.has_value() or result.value().deleted_count() != 1) {
+        if (!result.has_value() || result.value().deleted_count() != 1) {
             return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
         }
 
@@ -273,11 +274,11 @@ public:
 
     grpc::Status CreateConfig(grpc::ServerContext* context, const CreateConfigRequest* request, Config* response) override {
         std::string domain;
-        if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return common::status::UNAUTHENTICATED;
         }
 
-        if (not request->has_config()){
+        if (!request->has_config()){
             return common::status::BAD_PAYLOAD;
         }
 
@@ -285,7 +286,7 @@ public:
         auto builder = DocumentWithDomain(domain);
         Config config = RemoveUIDFromMessage(request->config());
 
-        if (not MessageToBson(config, builder)) {
+        if (!MessageToBson(config, builder)) {
             return common::status::UNIMPLEMENTED;
         }
 
@@ -293,8 +294,8 @@ public:
             return status.value();
         }
 
-        if (not FetchFromMongo<Config>(m_config_collection, BuildIDAndDomainFilter(id, domain), response)) {
-            common::log::error({{"message", "inserted configuration but could not fetch it back"}});
+        if (!FetchFromMongo<Config>(m_config_collection, BuildIDAndDomainFilter(id, domain), response)) {
+            common::log::error({{"message", "inserted configuration but could !fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
 
@@ -304,16 +305,16 @@ public:
     grpc::Status GetConfig(grpc::ServerContext* context, const GetConfigRequest* request, Config* response) override {
         std::string domain;
         
-        if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return common::status::UNAUTHENTICATED;
         }
 
-        if (not ValidateIsOid(request->config_uid())) {
+        if (!ValidateIsOid(request->config_uid())) {
             return common::status::BAD_PAYLOAD;
         }
 
         try {
-            if (not FetchFromMongo<Config>(m_config_collection, BuildIDAndDomainFilter(request->config_uid(), domain), response)) {
+            if (!FetchFromMongo<Config>(m_config_collection, BuildIDAndDomainFilter(request->config_uid(), domain), response)) {
                 return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such configuration");
             }
         } catch (const mongocxx::exception& e) {
@@ -330,25 +331,25 @@ public:
 
     grpc::Status UpdateConfig(grpc::ServerContext* context, const UpdateConfigRequest* request, Config* response) override {
         std::string domain;
-        if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return common::status::UNAUTHENTICATED;
         }
 
-        if (not request->has_config()) {
+        if (!request->has_config()) {
             return common::status::BAD_PAYLOAD;
         }
 
         std::string id = request->config().uid();
         const Config& config = RemoveUIDFromMessage(request->config());
 
-        if (not ValidateIsOid(id)) {
+        if (!ValidateIsOid(id)) {
             return common::status::BAD_PAYLOAD;
         }
 
 
         auto builder = bsoncxx::builder::basic::document{};
         auto nested = bsoncxx::builder::basic::document{};
-        if (not MessageToBson(config, nested)) {
+        if (!MessageToBson(config, nested)) {
             return common::status::UNIMPLEMENTED;
         }
         builder.append(bsoncxx::builder::basic::kvp("$set", nested));
@@ -361,12 +362,12 @@ public:
             return common::status::DATABASE_ERROR;
         }
 
-        if (not result or result.value().modified_count() == 0) {
+        if (!result || result.value().modified_count() == 0) {
             return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such configuration");
         }
 
-        if (not FetchFromMongo<Config>(m_config_collection, BuildIDAndDomainFilter(id, domain), response)) {
-            common::log::error({{"message", "updated config but could not fetch it back"}});
+        if (!FetchFromMongo<Config>(m_config_collection, BuildIDAndDomainFilter(id, domain), response)) {
+            common::log::error({{"message", "updated config but could !fetch it back"}});
             return common::status::DATABASE_ERROR;
         }
         return grpc::Status::OK;
@@ -374,11 +375,11 @@ public:
 
     grpc::Status DeleteConfig(grpc::ServerContext* context, const DeleteConfigRequest* request, Empty* response) override {
         std::string domain;
-        if (not common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
+        if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return common::status::UNAUTHENTICATED;
         }
 
-        if (not ValidateIsOid(request->config_uid())) {
+        if (!ValidateIsOid(request->config_uid())) {
             return common::status::BAD_PAYLOAD;
         }
 
@@ -391,7 +392,7 @@ public:
             return common::status::DATABASE_ERROR;
         }
 
-        if (not result.has_value() or result.value().deleted_count() != 1) {
+        if (!result.has_value() || result.value().deleted_count() != 1) {
             return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such configuration");
         }
 
@@ -415,7 +416,7 @@ private:
             return common::status::DATABASE_ERROR;
         }
 
-        if (not result or result.value().result().inserted_count() != 1) {
+        if (!result || result.value().result().inserted_count() != 1) {
             return common::status::DATABASE_ERROR;
         }
 
@@ -497,7 +498,7 @@ int main(int argc, const char* argv[])
     }
 
     ganymede::services::device_config::DeviceConfigServiceConfig service_config;
-    if (not google::protobuf::util::JsonStringToMessage(readFile(argv[1]), &service_config).ok()) {
+    if (!google::protobuf::util::JsonStringToMessage(readFile(argv[1]), &service_config).ok()) {
         return -1;
     }
 

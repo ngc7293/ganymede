@@ -1,9 +1,11 @@
+# Build artefacts
+__pycache__/
+_build/
+build/
+out/
+
 # Service configurations and secrets
 *.service_config.json
 
 # IDE configuration
 .vscode/
-
-# Build artefacts
-__pycache__
-cmake/

@@ -2,19 +2,11 @@ cmake_minimum_required(VERSION 3.16)
 project(ganymede VERSION 0.1.0)
 
 # Import third parties
-include(${CMAKE_SOURCE_DIR}/cmake/conan/conan_paths.cmake)
+include("${CMAKE_BINARY_DIR}/conan_paths.cmake")
+include("${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
+conan_basic_setup(TARGETS)
 
-find_package(Threads REQUIRED)
-find_package(OpenSSL REQUIRED)
-find_package(Protobuf REQUIRED)
-find_package(gRPC REQUIRED)
-find_package(cpp-jwt REQUIRED)
-find_package(nlohmann_json REQUIRED)
-find_package(mongoc-1.0 REQUIRED)
-find_package(mongocxx REQUIRED)
-find_package(cpr REQUIRED)
-
-get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
+set(grpc_cpp_plugin_location "${CONAN_GRPC_ROOT}/bin/grpc_cpp_plugin")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(GANYMEDE_GCP_PROJECT_ID ganymede-hydro)
@@ -33,8 +25,8 @@ function(add_microservice)
     cmake_parse_arguments(ADD_MICROSERVICE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
 
     add_library(ganymede.services.${ADD_MICROSERVICE_NAME}.proto STATIC ${ADD_MICROSERVICE_PROTO})
-    target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME}.proto PUBLIC protobuf::libprotobuf gRPC::grpc gRPC::grpc++)
-    target_compile_features(ganymede.services.${ADD_MICROSERVICE_NAME}.proto PUBLIC cxx_std_17)
+    target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME}.proto PUBLIC CONAN_PKG::grpc)
+    target_compile_features(ganymede.services.${ADD_MICROSERVICE_NAME}.proto PUBLIC cxx_std_20)
     protobuf_generate(TARGET ganymede.services.${ADD_MICROSERVICE_NAME}.proto LANGUAGE cpp)
     protobuf_generate(TARGET ganymede.services.${ADD_MICROSERVICE_NAME}.proto LANGUAGE grpc GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}")
 
@@ -52,4 +44,5 @@ function(add_microservice)
     )
 endfunction()
 
+add_subdirectory(libs)
 add_subdirectory(ganymede)

@@ -1,13 +1,13 @@
 [requires]
-mongo-c-driver/1.17.4
-mongo-cxx-driver/3.6.2
-nlohmann_json/3.9.1
+cpp-jwt/1.4
 grpc/1.37.1
-gtest/1.10.0
-cpp-jwt/1.3
-openssl/1.1.1k
-cpr/1.6.2
+gtest/1.11.0
+libcurl/7.80.0
+mongo-c-driver/1.17.6
+mongo-cxx-driver/3.6.6
+nlohmann_json/3.10.5
+openssl/1.1.1m
 
 [generators]
-cmake_find_package
+cmake
 cmake_paths
