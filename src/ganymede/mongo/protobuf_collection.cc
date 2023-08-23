@@ -102,7 +102,7 @@ api::Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::st
         int ec = e.code().value();
 
         if (ec == MONGO_UNIQUE_KEY_VIOLATION) {
-            return api::Status::INVALID_ARGUMENT;
+            return { api::Status::INVALID_ARGUMENT, "unique key collision" };
         } else {
             log::error(e.what(), { { "domain", domain } });
             return api::Status::INTERNAL;
@@ -137,7 +137,7 @@ api::Result<void> ProtobufCollectionUntyped::UpdateDocument(const std::string& o
         return api::Status::INTERNAL;
     }
 
-    if (not result or result.value().modified_count() == 0) {
+    if (not result or result.value().matched_count() == 0) {
         return { api::Status::NOT_FOUND, "no such resource" };
     }
 

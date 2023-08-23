@@ -218,13 +218,14 @@ grpc::Status DeviceServiceImpl::UpdateDevice(grpc::ServerContext* context, const
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
     }
 
-    Device device = SanitizeInputDevice(request->device());
+    const std::string& id = request->device().uid();
+    const Device device = SanitizeInputDevice(request->device());
     auto validation = ValidateInputDevice(device, domain);
     if (not validation) {
         return validation;
     }
 
-    auto result = d->deviceCollection.UpdateDocument(request->device().config_uid(), domain, device);
+    auto result = d->deviceCollection.UpdateDocument(id, domain, device);
     if (result) {
         response->Swap(&(ComputeOutputDevice(result.value())));
     }

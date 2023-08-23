@@ -1,6 +1,10 @@
+// clang-format off
+
 #include <gtest/gtest.h>
 
 #include <date/date.h>
+
+#include <nlohmann/json.hpp>
 
 #include "device_service_test.hh"
 
@@ -8,92 +12,193 @@ using namespace date::literals;
 
 TEST_F(DeviceServiceTest, should_add_config)
 {
-    ganymede::services::device::CreateConfigRequest request;
-    request.mutable_config()->set_uid("alphabravo");
-    request.mutable_config()->set_display_name("alphabravo");
-    auto luminaire = request.mutable_config()->mutable_light_config()->add_luminaires();
-    luminaire->set_port(1);
-    luminaire->set_use_pwm(true);
 
-    auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateConfig, request);
-    EXPECT_NE(result.value().uid(), request.config().uid());
-    EXPECT_EQ(result.value().display_name(), request.config().display_name());
+    nlohmann::json request = {
+        { "config", {
+            { "uid", "alphabravo" },
+            { "display_name", "alphabravo" },
+            { "light_config", {
+                { "luminaires", {
+                    {
+                        { "port", 1 },
+                        { "use_pwm", true }
+                    }
+                }}
+            }}
+        }}
+    };
+
+    auto response = Call(&ganymede::services::device::DeviceServiceImpl::CreateConfig, request).value();
+    EXPECT_NE(response["uid"], "");
+    EXPECT_NE(response["uid"], "alphabravo");
+    EXPECT_EQ(response["display_name"], "alphabravo");
 }
 
 TEST_F(DeviceServiceTest, should_add_device)
 {
-    ganymede::services::device::CreateDeviceRequest request;
-    request.mutable_device()->set_uid("charliedelta");
-    request.mutable_device()->set_config_uid(MakeConfig());
-    request.mutable_device()->set_display_name("my device");
-    request.mutable_device()->set_mac("00:00:00:00:00:00");
+    nlohmann::json request = {
+        { "device", {
+            { "uid", "charliedelta" },
+            { "display_name", "my device" },
+            { "mac", "00:00:00:00:00:00" },
+            { "config_uid", MakeConfig() }
+        }}
+    };
 
-    auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
-    EXPECT_NE(result.value().uid(), request.device().uid());
-    EXPECT_EQ(result.value().display_name(), request.device().display_name());
-    EXPECT_EQ(result.value().mac(), request.device().mac());
+    auto response = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request).value();
+    EXPECT_NE(response["uid"], "");
+    EXPECT_NE(response["uid"], "charliedelta");
+    EXPECT_EQ(response["display_name"], "my device");
+    EXPECT_EQ(response["mac"], "00:00:00:00:00:00");
 }
 
 TEST_F(DeviceServiceTest, should_get_device)
 {
-    ganymede::services::device::CreateDeviceRequest create_request;
-    create_request.mutable_device()->set_uid("charliedelta");
-    create_request.mutable_device()->set_config_uid(MakeConfig());
-    create_request.mutable_device()->set_display_name("my device");
-    create_request.mutable_device()->set_mac("00:00:00:00:00:00");
+    nlohmann::json create_request = {
+        { "device", {
+            { "uid", "charliedelta" },
+            { "display_name", "my device" },
+            { "mac", "00:00:00:00:00:00" },
+            { "config_uid", MakeConfig() }
+        }}
+    };
 
-    auto create_result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, create_request);
+    auto create_result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, create_request).value();
 
-    ganymede::services::device::GetDeviceRequest request;
-    request.set_device_uid(create_result.value().uid());
-
-    auto result = Call(&ganymede::services::device::DeviceServiceImpl::GetDevice, request);
-    EXPECT_NE(result.value().uid(), create_request.device().uid());
-    EXPECT_EQ(result.value().display_name(), create_request.device().display_name());
-    EXPECT_EQ(result.value().mac(), create_request.device().mac());
+    auto response = Call(&ganymede::services::device::DeviceServiceImpl::GetDevice, {{ "device_uid", create_result["uid"] }}).value();
+    EXPECT_EQ(response["uid"], create_result["uid"]);
+    EXPECT_EQ(response["display_name"], "my device");
+    EXPECT_EQ(response["mac"], "00:00:00:00:00:00");
 }
 
 TEST_F(DeviceServiceTest, should_refuse_invalid_timezone)
 {
-    ganymede::services::device::CreateDeviceRequest request;
-    request.mutable_device()->set_config_uid(MakeConfig());
-    request.mutable_device()->set_mac("00:00:00:00:00:00");
-    request.mutable_device()->set_timezone("Rohan/Edoras");
+    nlohmann::json request = {
+        { "device", {
+            { "mac", "00:00:00:00:00:00" },
+            { "config_uid", MakeConfig() },
+            { "timezone", "Rohan/Edoras" }
+        }}
+    };
 
-    auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request, false);
-    EXPECT_EQ(result.status(), ganymede::api::Status::INVALID_ARGUMENT);
+    {
+        auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request, false);
+        EXPECT_EQ(result.status(), ganymede::api::Status::INVALID_ARGUMENT);
+    }
+    {
+        request["device"]["uid"] = MakeDevice();
+        request["device"]["timezone"] = "Rohan/Edoras";
+        auto result = Call(&ganymede::services::device::DeviceServiceImpl::UpdateDevice, request, false);
+        EXPECT_EQ(result.status(), ganymede::api::Status::INVALID_ARGUMENT);
+    }
 }
 
 TEST_F(DeviceServiceTest, should_return_timezone_offset)
 {
-    now = []() { return static_cast<date::sys_days>(2022_y / date::January / 1); };
+    now = []() { return static_cast<date::sys_days>(2022_y / date::January / 1); };\
 
     {
-        ganymede::services::device::CreateDeviceRequest request;
-        request.mutable_device()->set_config_uid(MakeConfig());
-        request.mutable_device()->set_mac("00:00:00:00:00:00");
-        request.mutable_device()->set_timezone("America/Montreal");
+        // Check on create
+        nlohmann::json request = {
+            { "device", {
+                { "mac", "00:00:00:00:00:00" },
+                { "config_uid", MakeConfig() },
+                { "timezone", "America/Montreal" }
+            }}
+        };
 
-        auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
-        EXPECT_EQ(result.value().timezone_offset_minutes(), -300);
+        auto response = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request).value();
+        EXPECT_EQ(response["timezone_offset_minutes"], "-300");
     }
     {
-        ganymede::services::device::CreateDeviceRequest request;
-        request.mutable_device()->set_config_uid(MakeConfig());
-        request.mutable_device()->set_mac("00:00:00:00:00:01");
-        request.mutable_device()->set_timezone("Europe/Berlin");
+        // Check on Get
+        nlohmann::json request = {
+            { "device", {
+                { "mac", "00:00:00:00:00:01" },
+                { "config_uid", MakeConfig() },
+                { "timezone", "Europe/Berlin" }
+            }}
+        };
 
-        auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
-        EXPECT_EQ(result.value().timezone_offset_minutes(), 60);
+        auto create_response = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request).value();
+        EXPECT_EQ(create_response["timezone_offset_minutes"], "60");
+
+        auto get_response = Call(&ganymede::services::device::DeviceServiceImpl::GetDevice, {{ "device_mac", "00:00:00:00:00:01" }}).value();
+        EXPECT_EQ(get_response["timezone_offset_minutes"], "60");
+    }
+    {
+        // Check on Update
+        nlohmann::json update_request = {
+            { "device", {
+                { "uid", MakeDevice("00:00:00:00:00:02") },
+                { "mac", "00:00:00:00:00:02"},
+                { "config_uid", MakeConfig() },
+                { "timezone", "Asia/Shanghai" }
+            }}
+        };
+
+        auto update_response = Call(&ganymede::services::device::DeviceServiceImpl::UpdateDevice, update_request).value();
+        EXPECT_EQ(update_response["timezone_offset_minutes"], "480");
     }
 }
 
 TEST_F(DeviceServiceTest, should_refuse_add_device_if_no_such_config)
 {
-    ganymede::services::device::CreateDeviceRequest request;
-    request.mutable_device()->set_config_uid("wigwam");
-    request.mutable_device()->set_mac("00:00:00:00:00:00");
+    {
+        nlohmann::json request = {
+            { "device", {
+                { "mac", "00:00:00:00:00:00"},
+                { "config_uid", "wigwam" },
+            }}
+        };
 
-    auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request, false);
-    EXPECT_EQ(result.status(), ganymede::api::Status::NOT_FOUND);
+        auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request, false);
+        EXPECT_EQ(result.status(), ganymede::api::Status::NOT_FOUND);
+        EXPECT_EQ(result.error(), "no such config");
+    }
+    {
+        nlohmann::json request = {
+            { "device", {
+                { "uid", MakeDevice("00:00:00:00:00:01") },
+                { "mac", "00:00:00:00:00:01"},
+                { "config_uid", "wigwam" }
+            }}
+        };
+
+        auto result = Call(&ganymede::services::device::DeviceServiceImpl::UpdateDevice, request, false);
+        EXPECT_EQ(result.status(), ganymede::api::Status::NOT_FOUND);
+        EXPECT_EQ(result.error(), "no such config");
+    }
+}
+
+TEST_F(DeviceServiceTest, should_update_device)
+{
+    nlohmann::json create_request = {
+        { "device", {
+            { "mac", "00:00:00:00:00:01" },
+            { "display_name", "Alpha" },
+            { "config_uid", MakeConfig() },
+            { "timezone", "Europe/Berlin" }
+        }}
+    };
+
+    auto create_response = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, create_request).value();
+    
+    nlohmann::json update_request = {
+        { "device", {
+            { "uid", create_response["uid"] },
+            { "mac", "ff:00:ff:00:ff:00" },
+            { "display_name", "Bravo" },
+            { "config_uid", MakeConfig() },
+            { "timezone", "America/Toronto" }
+        }}
+    };
+
+    auto response = Call(&ganymede::services::device::DeviceServiceImpl::UpdateDevice, update_request).value();
+    EXPECT_EQ(response["uid"], create_response["uid"]);
+    EXPECT_NE(response["config_uid"], create_response["config_uid"]);
+
+    EXPECT_EQ(response["mac"], "ff:00:ff:00:ff:00");
+    EXPECT_EQ(response["display_name"], "Bravo");
+    EXPECT_EQ(response["timezone"], "America/Toronto");
 }

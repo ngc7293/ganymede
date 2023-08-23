@@ -41,7 +41,7 @@ public:
     Value& value() & { return *value_; }
     const Value& value() const& { return value_.value(); }
 
-    Value&& value() && { return *value_; }
+    Value value() && { return *value_; }
     const Value&& value() const&& { return value_.value(); }
 
 private:

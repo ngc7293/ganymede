@@ -29,6 +29,16 @@ public:
         return result.value().uid();
     }
 
+    std::string MakeDevice(const std::string& mac = "00:00:00:00:00:00")
+    {
+        ganymede::services::device::CreateDeviceRequest request;
+        request.mutable_device()->set_mac(mac);
+        request.mutable_device()->set_config_uid(MakeConfig());
+
+        auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
+        return result.value().uid();
+    }
+
     void TearDown() override
     {
         // Remove all documents from database after each test case

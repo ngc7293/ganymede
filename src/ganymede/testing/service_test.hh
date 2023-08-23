@@ -3,7 +3,11 @@
 
 #include <gtest/gtest.h>
 
+#include <google/protobuf/util/json_util.h>
+
 #include <grpcpp/grpcpp.h>
+
+#include <nlohmann/json.hpp>
 
 namespace ganymede::testing {
 
@@ -13,6 +17,18 @@ protected:
     ServiceTest(Service&& service)
         : service(std::move(service))
     {
+    }
+
+    template <class Response, class Request>
+    ganymede::api::Result<nlohmann::json> Call(grpc::Status (Service::*rpc)(grpc::ServerContext*, const Request*, Response*), const nlohmann::json& request, bool expect = true)
+    {
+        auto result = Call(rpc, ToProto<Request>(request), expect);
+
+        if (result) {
+            return { ToJson(result.value()) };
+        } else {
+            return { result.status(), result.error() };
+        }
     }
 
     template <class Response, class Request>
@@ -27,6 +43,26 @@ protected:
         } else {
             return { static_cast<ganymede::api::Status>(result.error_code()), result.error_message() };
         }
+    }
+
+private:
+    template <class Message>
+    Message ToProto(const nlohmann::json& json)
+    {
+        Message message;
+        google::protobuf::util::JsonStringToMessage(json.dump(), &message);
+        return message;
+    }
+
+    template <class Message>
+    nlohmann::json ToJson(const Message& proto)
+    {
+        static google::protobuf::util::JsonPrintOptions options;
+        options.preserve_proto_field_names = true;
+
+        std::string json;
+        google::protobuf::util::MessageToJsonString(proto, &json, options);
+        return nlohmann::json::parse(json);
     }
 
 protected:
