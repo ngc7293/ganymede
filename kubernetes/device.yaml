@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: device
+  labels:
+    app.kubernetes.io/name: device
+    app.kubernetes.io/component: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: device
+      app.kubernetes.io/component: app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: device
+        app.kubernetes.io/component: app
+    spec:
+      containers:
+      - name: device
+        image: ghcr.io/ngc7293/ganymede/device.service:0.3.4
+        ports:
+          - containerPort: 3000
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512M
+          limits:
+            cpu: 500m
+            memory: 512M
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: device
+  labels:
+    app.kubernetes.io/name: device
+    app.kubernetes.io/component: app
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: device
+    app.kubernetes.io/component: app
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000  
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: GRPC
+    cert-manager.io/issuer: letsencrypt
+  labels:
+    app.kubernetes.io/name: ganymede
+    app.kubernetes.io/component: api
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - ganymede.davidbourgault.ca
+    secretName: ganymede-letsencrypt-cert
+  rules:
+  - host: ganymede.davidbourgault.ca
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: device
+            port: 
+              number: 3000

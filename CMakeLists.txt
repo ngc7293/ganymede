@@ -10,10 +10,11 @@ include("${CMAKE_BINARY_DIR}/conanbuildinfo.cmake")
 conan_basic_setup(TARGETS)
 
 set(grpc_cpp_plugin_location "${CONAN_GRPC_ROOT}/bin/grpc_cpp_plugin")
-message("${grpc_cpp_plugin_location}")
+message("-- gRPC C++ plugin: ${grpc_cpp_plugin_location}")
 
 enable_testing()
-find_package(GTest)
+find_package(GTest REQUIRED)
+find_package(Protobuf)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(GANYMEDE_GCP_PROJECT_ID ganymede-hydro)
@@ -65,8 +66,9 @@ function(add_microservice)
 
     add_custom_target(
         ganymede.services.${ADD_MICROSERVICE_NAME}.docker
-        COMMAND docker build -t gcr.io/${GANYMEDE_GCP_PROJECT_ID}/${ADD_MICROSERVICE_NAME}.service:${PROJECT_VERSION} -f ${CMAKE_CURRENT_SOURCE_DIR}/Dockerfile .
+        COMMAND docker build -t ghcr.io/ngc7293/ganymede/${ADD_MICROSERVICE_NAME}.service:${PROJECT_VERSION} -f ${CMAKE_CURRENT_SOURCE_DIR}/Dockerfile .
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        USES_TERMINAL
     )
 endfunction()
 

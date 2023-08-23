@@ -9,7 +9,7 @@ add_microservice(
         main.cc
     PROTO
         measurements.proto
-        measurements.service_config.proto
+        measurements.config.proto
 )
 
 target_link_libraries(ganymede.services.measurements PRIVATE influx)

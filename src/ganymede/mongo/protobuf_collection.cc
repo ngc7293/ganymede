@@ -104,7 +104,7 @@ api::Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::st
         if (ec == MONGO_UNIQUE_KEY_VIOLATION) {
             return api::Status::INVALID_ARGUMENT;
         } else {
-            log::error({ { "message", e.what() } });
+            log::error(e.what(), {{"domain", domain}});
             return api::Status::INTERNAL;
         }
     }
@@ -133,7 +133,7 @@ api::Result<void> ProtobufCollectionUntyped::UpdateDocument(const std::string& o
     try {
         result = d->collection.update_one(BuildIDAndDomainFilter(oid, domain), builder.view());
     } catch (const mongocxx::exception& e) {
-        log::error({ { "message", e.what() } });
+        log::error(e.what(), {{"domain", domain}});
         return api::Status::INTERNAL;
     }
 
@@ -155,7 +155,7 @@ api::Result<void> ProtobufCollectionUntyped::DeleteDocument(const std::string& o
     try {
         result = d->collection.delete_one(BuildIDAndDomainFilter(oid, domain));
     } catch (const mongocxx::exception& e) {
-        log::error({ { "message", e.what() } });
+        log::error(e.what(), {{"domain", domain}});
         return api::Status::INTERNAL;
     }
 

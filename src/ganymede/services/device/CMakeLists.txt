@@ -1,4 +1,4 @@
-project(ganymede.services.device VERSION 0.3.0)
+project(ganymede.services.device VERSION 0.3.4)
 
 add_microservice(
     NAME

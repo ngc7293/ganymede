@@ -305,7 +305,7 @@ grpc::Status DeviceServiceImpl::UpdateConfig(grpc::ServerContext* context, const
     std::string id = request->config().uid();
     const Config& config = RemoveUIDFromMessage(request->config());
 
-    auto result = d->configCollection.UpdateDocument(config.uid(), domain, config);
+    auto result = d->configCollection.UpdateDocument(id, domain, config);
     if (result) {
         response->Swap(&result.value());
     }

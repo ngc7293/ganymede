@@ -5,7 +5,9 @@
 
 #include <google/protobuf/util/json_util.h>
 
+#include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/health_check_service_interface.h>
 
 #include <mongoc/mongoc.h>
 
@@ -13,18 +15,6 @@
 #include <ganymede/mongo/protobuf_collection.hh>
 
 #include "device_service_impl.hh"
-
-std::string makeMongoURI(const ganymede::services::device::DeviceServiceConfig::MongoDBConfig& config)
-{
-    std::stringstream ss;
-    ss << "mongodb+srv://"
-       << config.user() << ":" << config.password()
-       << "@" << config.host()
-       << "/" << config.database()
-       << "?retryWrites=true&w=majority";
-
-    return ss.str();
-}
 
 std::string readFile(const std::filesystem::path& path)
 {
@@ -39,9 +29,15 @@ std::string readFile(const std::filesystem::path& path)
     return content.str();
 }
 
-int main(int argc, const char* argv[])
+void init_globals()
 {
     mongoc_init();
+    ganymede::log::Log::get().AddSink(std::make_unique<ganymede::log::StdIoLogSink>());
+}
+
+int main(int argc, const char* argv[])
+{
+    init_globals();
 
     if (argc < 2) {
         return -1;
@@ -52,18 +48,24 @@ int main(int argc, const char* argv[])
         return -1;
     }
 
-    std::string mongo_uri = makeMongoURI(service_config.mongodb());
     std::shared_ptr<ganymede::auth::AuthValidator> authValidator(new ganymede::auth::JwtAuthValidator());
-    ganymede::services::device::DeviceServiceImpl service(mongo_uri, authValidator);
+    ganymede::services::device::DeviceServiceImpl service(service_config.mongo_uri(), authValidator);
+
+    grpc::EnableDefaultHealthCheckService(true);
+    grpc::reflection::InitProtoReflectionServerBuilderPlugin();
 
     grpc::ServerBuilder builder;
     builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
 
-    ganymede::log::info({ { "message", "listening on 0.0.0.0:3000" } });
+    if (std::unique_ptr<grpc::Server> server = builder.BuildAndStart()) {
+        ganymede::log::info("listening on 0.0.0.0:3000");
 
-    std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
-    server->Wait();
+        grpc::HealthCheckServiceInterface* service = server->GetHealthCheckService();
+        service->SetServingStatus("ganymede.services.device.DeviceService", true);
+
+        server->Wait();
+    }
 
     mongoc_cleanup();
     return 0;

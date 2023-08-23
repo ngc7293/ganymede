@@ -30,7 +30,7 @@ jobs:
         env:
           CC: gcc-11
           CXX: g++-11
-        run: conan install .. --update --build=missing -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s build_type=Release -r davidbourgault
+        run: conan install .. --update --build=missing --setting compiler.version=11 --setting compiler.libcxx=libstdc++11 --setting build_type=Release --remote=davidbourgault
 
       - name: Upload
         run: conan upload '*' --remote davidbourgault --all --confirm
@@ -57,6 +57,20 @@ jobs:
       - name: Test
         working-directory: build
         run: ctest --rerun-failed --output-on-failure
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        working-directory: build
+        run: cmake --build . --target ganymede.services.device.docker
+
+      - name: Push
+        run: docker push --all-tags ghcr.io/ngc7293/ganymede/device.service
 
   validate-style:
     runs-on: ubuntu-20.04

@@ -1,11 +1,12 @@
 [requires]
 cpp-jwt/1.4
-grpc/1.47.1
+grpc/1.50.1
+protobuf/3.21.4
 gtest/1.12.1
-libcurl/7.84.0
+libcurl/7.86.0
 mongo-c-driver/1.22.0
 mongo-cxx-driver/3.6.7
-nlohmann_json/3.11.1
+nlohmann_json/3.11.2
 openssl/1.1.1q
 date/3.0.1
 

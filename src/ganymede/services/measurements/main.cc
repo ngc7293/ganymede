@@ -13,7 +13,7 @@
 
 #include "measurements.grpc.pb.h"
 #include "measurements.pb.h"
-#include "measurements.service_config.pb.h"
+#include "measurements.config.pb.h"
 
 namespace ganymede::services::measurements {
 
@@ -38,9 +38,9 @@ public:
         try {
             bucket = influx_["measurements-" + domain];
         } catch (const influx::InfluxRemoteError& err) {
-            log::error({ { "message", err.what() }, { "code", err.statusCode() } });
+            log::error(err.what(), {{ "code", err.statusCode() } });
         } catch (const std::exception& err) {
-            log::error({ { "message", err.what() } });
+            log::error(err.what());
             return grpc::Status(grpc::StatusCode::INTERNAL, "");
         }
 
@@ -100,7 +100,7 @@ public:
         try {
             bucket.Flush();
         } catch (const std::exception& err) {
-            log::error({ { "message", err.what() } });
+            log::error(err.what());
             return api::Result<void>(api::Status::INTERNAL);
         }
 
@@ -163,7 +163,7 @@ public:
                 }
             }
         } catch (const std::exception& err) {
-            log::error({ { "message", err.what() } });
+            log::error(err.what());
             return api::Result<void>(api::Status::INTERNAL);
         }
 
@@ -193,7 +193,7 @@ std::string readFile(const std::filesystem::path& path)
 int main(int argc, const char* argv[])
 {
     if (argc <= 1) {
-        ganymede::log::error({ { "message", "Missing configuration file argument" } });
+        ganymede::log::error("Missing configuration file argument");
         return -1;
     }
 
@@ -208,7 +208,7 @@ int main(int argc, const char* argv[])
     builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
 
-    ganymede::log::info({ { "message", "listening on 0.0.0.0:3000" } });
+    ganymede::log::info("listening on 0.0.0.0:3000");
 
     std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
     server->Wait();
