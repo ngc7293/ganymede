@@ -1,9 +1,11 @@
 add_library(
     ganymede.common
     STATIC
-    status.hh
     log.hh
     log.cc
+    operation.hh
+    status.cc
+    status.hh
 )
 
 target_link_libraries(ganymede.common

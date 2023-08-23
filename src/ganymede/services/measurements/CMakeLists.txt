@@ -4,6 +4,8 @@ add_microservice(
     NAME measurements
     HEADERS
     SOURCES
+        void.cc
+    MAIN
         main.cc
     PROTO
         measurements.proto

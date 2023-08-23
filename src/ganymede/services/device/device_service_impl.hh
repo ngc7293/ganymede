@@ -20,6 +20,7 @@ class DeviceServiceImpl final : public DeviceService::Service {
 public:
     DeviceServiceImpl() = delete;
     DeviceServiceImpl(std::string mongo_uri);
+    ~DeviceServiceImpl();
 
     grpc::Status AddDevice(grpc::ServerContext* context, const AddDeviceRequest* request, Device* response) override;
     grpc::Status GetDevice(grpc::ServerContext* context, const GetDeviceRequest* request, Device* response) override;
@@ -34,19 +35,8 @@ public:
     grpc::Status DeleteConfig(grpc::ServerContext* context, const DeleteConfigRequest* request, Empty* response) override;
 
 private:
-    std::optional<grpc::Status> TryInsertDocumentIntoMongo(mongocxx::collection& collection, const bsoncxx::builder::basic::document& builder, std::string& id);
-    std::optional<grpc::Status> TryInsertDocumentIntoMongo(mongocxx::collection& collection, const bsoncxx::builder::basic::document& builder, std::string& id, int& ec);
-
-    template<class DocumentType>
-    bool FetchFromMongo(mongocxx::collection& collection, const bsoncxx::document::view_or_value& filter, DocumentType* dest);
-    bool CheckIfExistInMongo(mongocxx::collection& collection, const bsoncxx::document::view_or_value& filter);
-    bool CreateUniqueIndex(mongocxx::collection& collection, const std::string& key);
-
-private:
-    mongocxx::client m_mongoclient;
-    mongocxx::database m_mongodb;
-    mongocxx::collection m_device_collection;
-    mongocxx::collection m_config_collection;
+    struct Priv;
+    std::unique_ptr<Priv> d;
 };
 
 }
