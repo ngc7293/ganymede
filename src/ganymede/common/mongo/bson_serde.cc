@@ -1,5 +1,5 @@
-#ifndef BSON_SERDE_HH_
-#define BSON_SERDE_HH_
+#ifndef GANYMEDE_COMMON_BSON_SERDE_HH_
+#define GANYMEDE_COMMON_BSON_SERDE_HH_
 
 #include <string>
 
@@ -8,7 +8,7 @@
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 
-namespace ganymede {
+namespace ganymede::mongo {
 
 bool MessageToBson(const google::protobuf::Message& message, bsoncxx::builder::basic::document& builder)
 {

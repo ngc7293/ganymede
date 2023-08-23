@@ -14,7 +14,7 @@ COPY ganymede       /var/build/ganymede
 # Build project
 WORKDIR /var/build/build
 RUN cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
-RUN ninja ganymede.services.device_config
+RUN ninja ganymede.services.device
 
 FROM ubuntu:latest AS runtime
 
@@ -22,10 +22,10 @@ RUN apt-get update
 RUN apt-get -y install ca-certificates
 
 COPY --from=build /var/build/build/bin/ /opt/bin/
-COPY ganymede/services/device_config/device_config.service_config.json /opt/var/
+COPY ganymede/services/device/device.service_config.json /opt/var/
 
 ENV PORT=3000
 
 EXPOSE ${PORT}
 WORKDIR /opt/
-ENTRYPOINT ["./bin/ganymede.services.device_config", "./var/device_config.service_config.json"]
+ENTRYPOINT ["./bin/ganymede.services.device", "./var/device.service_config.json"]

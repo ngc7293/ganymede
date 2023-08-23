@@ -7,9 +7,9 @@
 
 #include <influx/influx.hh>
 
-#include "common/auth/jwt.hh"
-#include "common/log.hh"
-#include "common/status.hh"
+#include <ganymede/common/auth/jwt.hh>
+#include <ganymede/common/log.hh>
+#include <ganymede/common/status.hh>
 
 #include "measurements.pb.h"
 #include "measurements.grpc.pb.h"
@@ -24,7 +24,7 @@ public:
     {
     }
 
-    grpc::Status PushMeasurements(grpc::ServerContext* context, const PushMeasurementsRequest* request, Empty* response) override {
+    grpc::Status PushMeasurements(grpc::ServerContext* context, const PushMeasurementsRequest* request, Empty* /* response */) override {
         std::string domain;
         if (!common::auth::CheckJWTTokenAndGetDomain(context, domain)) {
             return common::status::UNAUTHENTICATED;
