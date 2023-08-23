@@ -7,3 +7,5 @@ target_link_libraries(ganymede.services.device.test
     PUBLIC
         CONAN_PKG::gtest
 )
+
+gtest_discover_tests(ganymede.services.device.test)

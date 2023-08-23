@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+message TestMessageA {
+    string s1 = 1;
+    bool b2 = 2;
+    int64 i3 = 3;
+    double d4 = 4;
+};

@@ -9,6 +9,6 @@ void error(nlohmann::json json);
 void warn(nlohmann::json json);
 void info(nlohmann::json json);
 
-}
+} // namespace ganymede::log
 
 #endif

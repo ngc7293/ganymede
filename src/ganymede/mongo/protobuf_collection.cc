@@ -1,5 +1,5 @@
-#include <bsoncxx/document/view.hpp>
 #include <bsoncxx/builder/basic/document.hpp>
+#include <bsoncxx/document/view.hpp>
 
 #include <mongocxx/exception/exception.hpp>
 
@@ -12,29 +12,25 @@
 namespace ganymede::mongo {
 
 namespace {
-    const int MONGO_UNIQUE_KEY_VIOLATION = 11000;
 
-    bsoncxx::builder::basic::document DocumentWithDomain(const std::string& domain)
-    {
-        auto builder = bsoncxx::builder::basic::document{};
-        builder.append(bsoncxx::builder::basic::kvp("domain", domain));
-        return builder;
-    }
+const int MONGO_UNIQUE_KEY_VIOLATION = 11000;
 
-    bsoncxx::document::value BuildIDAndDomainFilter(const std::string& id, const std::string& domain)
-    {
-        auto builder = DocumentWithDomain(domain);
-        builder.append(bsoncxx::builder::basic::kvp("_id", bsoncxx::oid(id.c_str(), id.length())));
-        return builder.extract();
-    }
+bsoncxx::document::value BuildIDAndDomainFilter(const std::string& id, const std::string& domain)
+{
+    bsoncxx::builder::basic::document builder{};
+    builder.append(bsoncxx::builder::basic::kvp("_id", bsoncxx::oid(bsoncxx::stdx::string_view(id))));
+    builder.append(bsoncxx::builder::basic::kvp("domain", domain));
+    return builder.extract();
 }
+
+} // namespace
 
 struct ProtobufCollectionUntyped::Priv {
     mongocxx::collection collection;
 };
 
 ProtobufCollectionUntyped::ProtobufCollectionUntyped(mongocxx::collection&& collection)
-    : d(new Priv{std::move(collection)})
+    : d(new Priv{ std::move(collection) })
 {
 }
 
@@ -42,6 +38,10 @@ ProtobufCollectionUntyped::~ProtobufCollectionUntyped() = default;
 
 api::Result<void> ProtobufCollectionUntyped::Contains(const std::string& oid, const std::string& domain)
 {
+    if (not ValidateIsOid(oid)) {
+        return { api::Status::INVALID_ARGUMENT, "invalid uid" };
+    }
+
     return Contains(BuildIDAndDomainFilter(oid, domain));
 }
 
@@ -65,7 +65,7 @@ api::Result<void> ProtobufCollectionUntyped::Contains(const bsoncxx::document::v
 api::Result<void> ProtobufCollectionUntyped::GetDocument(const std::string& oid, const std::string& domain, google::protobuf::Message& output)
 {
     if (not ValidateIsOid(oid)) {
-        return {api::Status::INVALID_ARGUMENT, "invalid uid"};
+        return { api::Status::INVALID_ARGUMENT, "invalid uid" };
     }
 
     return GetDocument(BuildIDAndDomainFilter(oid, domain), output);
@@ -88,7 +88,7 @@ api::Result<void> ProtobufCollectionUntyped::GetDocument(const bsoncxx::document
 api::Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::string& domain, const google::protobuf::Message& message)
 {
     auto builder = bsoncxx::builder::basic::document{};
-    builder.append(bsoncxx::builder::basic::kvp("domain", bsoncxx::oid(domain.c_str(), domain.length())));
+    builder.append(bsoncxx::builder::basic::kvp("domain", domain));
 
     if (not MessageToBson(message, builder)) {
         return api::Status::UNIMPLEMENTED;
@@ -104,7 +104,7 @@ api::Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::st
         if (ec == MONGO_UNIQUE_KEY_VIOLATION) {
             return api::Status::INVALID_ARGUMENT;
         } else {
-            log::error({{"message", e.what()}});
+            log::error({ { "message", e.what() } });
             return api::Status::INTERNAL;
         }
     }
@@ -113,7 +113,7 @@ api::Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::st
         return api::Status::INTERNAL;
     }
 
-    return {OIDToString(result->inserted_id())};
+    return { OIDToString(result->inserted_id()) };
 }
 
 api::Result<void> ProtobufCollectionUntyped::UpdateDocument(const std::string& oid, const std::string& domain, const google::protobuf::Message& message)
@@ -133,12 +133,12 @@ api::Result<void> ProtobufCollectionUntyped::UpdateDocument(const std::string& o
     try {
         result = d->collection.update_one(BuildIDAndDomainFilter(oid, domain), builder.view());
     } catch (const mongocxx::exception& e) {
-        log::error({{"message", e.what()}});
+        log::error({ { "message", e.what() } });
         return api::Status::INTERNAL;
     }
 
     if (not result or result.value().modified_count() == 0) {
-        return {api::Status::NOT_FOUND, "no such resource"};
+        return { api::Status::NOT_FOUND, "no such resource" };
     }
 
     return api::Status::OK;
@@ -155,15 +155,15 @@ api::Result<void> ProtobufCollectionUntyped::DeleteDocument(const std::string& o
     try {
         result = d->collection.delete_one(BuildIDAndDomainFilter(oid, domain));
     } catch (const mongocxx::exception& e) {
-        log::error({{"message", e.what()}});
+        log::error({ { "message", e.what() } });
         return api::Status::INTERNAL;
     }
 
     if (not result.has_value() or result.value().deleted_count() != 1) {
-        return {api::Status::NOT_FOUND, "no such resource"};
+        return { api::Status::NOT_FOUND, "no such resource" };
     }
 
     return api::Status::OK;
 }
 
-}
+} // namespace ganymede::mongo

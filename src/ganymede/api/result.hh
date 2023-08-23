@@ -1,21 +1,36 @@
 #ifndef GANYMEDE__API__RESULT_HH_
 #define GANYMEDE__API__RESULT_HH_
 
-#include <string>
 #include <optional>
+#include <string>
 
 #include <ganymede/api/status.hh>
 
 namespace ganymede::api {
 
-template<typename Value>
+template <typename Value>
 class Result {
 public:
     Result() = delete;
+    Result(const Value& value) = delete;
 
-    Result(Value&& value) : value_(std::move(value)), status_(Status::OK) { }
-    Result(api::Status status, std::string&& error) : status_(status), error_(std::move(error)) { }
-    Result(api::Status status, const std::string& error = "") : status_(status), error_(error) { }
+    Result(Value&& value)
+        : value_(std::move(value))
+        , status_(Status::OK)
+    {
+    }
+
+    Result(api::Status status, std::string&& error)
+        : status_(status)
+        , error_(std::move(error))
+    {
+    }
+
+    Result(api::Status status, const std::string& error = "")
+        : status_(status)
+        , error_(error)
+    {
+    }
 
     operator bool() const { return status_ == api::Status::OK; }
     operator grpc::Status() const { return grpc::Status(static_cast<grpc::StatusCode>(status_), error_); }
@@ -35,12 +50,25 @@ private:
     std::string error_;
 };
 
-template<>
+template <>
 class Result<void> {
 public:
-    Result() : status_(api::Status::OK) { }
-    Result(api::Status status, std::string&& error) : status_(status), error_(std::move(error)) { }
-    Result(api::Status status, const std::string& error = "") : status_(status), error_(error) { }
+    Result()
+        : status_(api::Status::OK)
+    {
+    }
+
+    Result(api::Status status, std::string&& error)
+        : status_(status)
+        , error_(std::move(error))
+    {
+    }
+
+    Result(api::Status status, const std::string& error = "")
+        : status_(status)
+        , error_(error)
+    {
+    }
 
     operator bool() const { return status_ == api::Status::OK; }
     operator grpc::Status() const { return grpc::Status(static_cast<grpc::StatusCode>(status_), error_); }
@@ -53,7 +81,6 @@ private:
     std::string error_;
 };
 
-
-}
+} // namespace ganymede::api
 
 #endif

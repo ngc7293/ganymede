@@ -13,6 +13,6 @@ bool ValidateIsOid(const std::string& id);
 std::string OIDToString(const bsoncxx::types::bson_value::view& val);
 std::string GetDocumentID(const bsoncxx::document::view_or_value& view);
 
-}
+} // namespace ganymede::mongo
 
 #endif
