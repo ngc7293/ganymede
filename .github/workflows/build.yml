@@ -30,7 +30,7 @@ jobs:
         env:
           CC: gcc-11
           CXX: g++-11
-        run: conan install .. --update --build=missing --setting compiler.version=11 --setting compiler.libcxx=libstdc++11 --setting build_type=Release --remote=davidbourgault
+        run: conan install .. --update --build=missing --settings compiler.version=11 --settings compiler.libcxx=libstdc++11 --settings build_type=Release --remote=davidbourgault
 
       - name: Upload
         run: conan upload '*' --remote davidbourgault --all --confirm
