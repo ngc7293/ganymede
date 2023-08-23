@@ -1,34 +1,35 @@
-FROM alpine:latest AS base
+FROM ubuntu:focal AS base
 
-RUN apk add git g++ cmake ninja g++ openssh openssl-dev linux-headers python3 python3-pip
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update
+RUN apt-get install g++ cmake ninja-build python3 python3-pip -y
 RUN pip install conan
 
 FROM base AS build
 
-# Copy only third-party files. We want to copy the smallest amount of files so
-# that it invalidates Docker's cache as seldomly as possible.
-# Build third parties
+# Third parties
+ENV CONAN_USER_HOME=/var/build/
+COPY conanfile.txt  /var/build/
+WORKDIR /var/build/cmake/conan
+RUN conan install ../.. -s compiler.libcxx=libstdc++11 -s cppstd=17 -s build_type=Release
 
 # Copy project source
 COPY CMakeLists.txt /var/build/
-COPY conanfile.txt  /var/build/
 COPY ganymede       /var/build/ganymede
 
 # Build project
-ENV CMAKE_PREFIX_PATH=/opt/local
-ENV GANYMEDE_SCOPE="service.device_config"
 WORKDIR /var/build/cmake/build
-RUN conan install ../..
 RUN cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ../..
 RUN ninja ganymede.services.device_config
 
-FROM alpine:latest AS runtime
+FROM ubuntu:focal AS runtime
 
-RUN apk add libstdc++
+RUN apt-get update
+RUN apt-get -y install ca-certificates
+
 COPY --from=build /var/build/cmake/build/bin/ /opt/bin/
 COPY ganymede/services/device_config/device_config.service_config.json /opt/var/
-
-RUN echo "/lib:/usr/lib:/usr/local/lib:/usr/local/lib64" > /etc/ld-musl-x86_64.path
 
 ENV PORT=3000
 
