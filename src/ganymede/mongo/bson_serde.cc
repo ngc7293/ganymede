@@ -8,7 +8,7 @@
 #include <bsoncxx/builder/basic/document.hpp>
 #include <bsoncxx/builder/basic/kvp.hpp>
 
-namespace ganymede::common::mongo {
+namespace ganymede::mongo {
 
 bool MessageToBson(const google::protobuf::Message& message, bsoncxx::builder::basic::document& builder)
 {

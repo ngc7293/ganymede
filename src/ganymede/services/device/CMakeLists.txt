@@ -16,7 +16,7 @@ add_microservice(
 
 target_link_libraries(ganymede.services.device.core
     PUBLIC
-        ganymede.common.mongo
+        ganymede.mongo
         CONAN_PKG::mongo-cxx-driver
         CONAN_PKG::mongo-c-driver
 )

@@ -46,7 +46,7 @@ function(add_microservice)
     add_library(ganymede.services.${ADD_MICROSERVICE_NAME}.core STATIC ${ADD_MICROSERVICE_SOURCES} ${ADD_MICROSERVICE_HEADERS})
     target_standard_compile_flags(TARGET ganymede.services.${ADD_MICROSERVICE_NAME}.core)
     target_include_directories(ganymede.services.${ADD_MICROSERVICE_NAME}.core PUBLIC ${CMAKE_CURRENT_BINARY_DIR}) # To include generated Protobuf/gRPC files
-    target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME}.core PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.proto ganymede.common ganymede.common.auth)
+    target_link_libraries(ganymede.services.${ADD_MICROSERVICE_NAME}.core PUBLIC ganymede.services.${ADD_MICROSERVICE_NAME}.proto ganymede.api ganymede.auth ganymede.log)
     
     add_executable(ganymede.services.${ADD_MICROSERVICE_NAME} ${ADD_MICROSERVICE_MAIN})
     # target_include_directories(ganymede.services.${ADD_MICROSERVICE_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}) # To include generated Protobuf/gRPC files

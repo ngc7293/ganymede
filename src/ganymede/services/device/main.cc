@@ -10,11 +10,11 @@
 
 #include <mongocxx/instance.hpp>
 
-#include <ganymede/common/log.hh>
+#include <ganymede/log/log.hh>
 
 #include "device_service_impl.hh"
 
-#include <ganymede/common/mongo/protobuf_collection.hh>
+#include <ganymede/mongo/protobuf_collection.hh>
 
 std::string makeMongoURI(const ganymede::services::device::DeviceServiceConfig::MongoDBConfig& config)
 {
@@ -62,7 +62,7 @@ int main(int argc, const char* argv[])
     builder.AddListeningPort("0.0.0.0:3000", grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
 
-    ganymede::common::log::info({{"message", "listening on 0.0.0.0:3000"}});
+    ganymede::log::info({{"message", "listening on 0.0.0.0:3000"}});
 
     std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
     server->Wait();

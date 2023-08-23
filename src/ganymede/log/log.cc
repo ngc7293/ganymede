@@ -5,7 +5,7 @@
 
 #include <ctime>
 
-namespace ganymede::common::log {
+namespace ganymede::log {
 
 void output(nlohmann::json& json)
 {

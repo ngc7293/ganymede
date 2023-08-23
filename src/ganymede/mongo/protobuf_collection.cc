@@ -3,13 +3,13 @@
 
 #include <mongocxx/exception/exception.hpp>
 
-#include <ganymede/common/log.hh>
-#include <ganymede/common/mongo/bson_serde.hh>
-#include <ganymede/common/mongo/protobuf_collection.hh>
-#include <ganymede/common/mongo/oid.hh>
-#include <ganymede/common/status.hh>
+#include <ganymede/api/status.hh>
+#include <ganymede/log/log.hh>
+#include <ganymede/mongo/bson_serde.hh>
+#include <ganymede/mongo/oid.hh>
+#include <ganymede/mongo/protobuf_collection.hh>
 
-namespace ganymede::common::mongo {
+namespace ganymede::mongo {
 
 namespace {
     const int MONGO_UNIQUE_KEY_VIOLATION = 11000;
@@ -40,7 +40,7 @@ ProtobufCollectionUntyped::ProtobufCollectionUntyped(mongocxx::collection&& coll
 
 ProtobufCollectionUntyped::~ProtobufCollectionUntyped() = default;
 
-Result<Void> ProtobufCollectionUntyped::Contains(const std::string& oid, const std::string& domain)
+api::Result<void> ProtobufCollectionUntyped::Contains(const std::string& oid, const std::string& domain)
 {
     return Contains(BuildIDAndDomainFilter(oid, domain));
 }
@@ -57,21 +57,21 @@ bool ProtobufCollectionUntyped::CreateUniqueIndex(int fieldNumber)
     return true;
 }
 
-Result<Void> ProtobufCollectionUntyped::Contains(const bsoncxx::document::view& filter)
+api::Result<void> ProtobufCollectionUntyped::Contains(const bsoncxx::document::view& filter)
 {
-    return d->collection.count_documents(filter) ? grpc::Status::OK : common::status::BAD_PAYLOAD;
+    return d->collection.count_documents(filter) ? api::Status::OK : api::Status::INVALID_ARGUMENT;
 }
 
-Result<Void> ProtobufCollectionUntyped::GetDocument(const std::string& oid, const std::string& domain, google::protobuf::Message& output)
+api::Result<void> ProtobufCollectionUntyped::GetDocument(const std::string& oid, const std::string& domain, google::protobuf::Message& output)
 {
     if (not ValidateIsOid(oid)) {
-        return {grpc::StatusCode::INVALID_ARGUMENT, "Invalid request"};
+        return {api::Status::INVALID_ARGUMENT, "invalid uid"};
     }
 
     return GetDocument(BuildIDAndDomainFilter(oid, domain), output);
 }
 
-Result<Void> ProtobufCollectionUntyped::GetDocument(const bsoncxx::document::view& filter, google::protobuf::Message& output)
+api::Result<void> ProtobufCollectionUntyped::GetDocument(const bsoncxx::document::view& filter, google::protobuf::Message& output)
 {
     bsoncxx::stdx::optional<bsoncxx::document::value> result;
 
@@ -79,19 +79,19 @@ Result<Void> ProtobufCollectionUntyped::GetDocument(const bsoncxx::document::vie
 
     if (result) {
         BsonToMessage(result.value(), output);
-        return {grpc::Status::OK};
+        return api::Status::OK;
     }
 
-    return {common::status::NOT_FOUND};
+    return api::Status::NOT_FOUND;
 }
 
-Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::string& domain, const google::protobuf::Message& message)
+api::Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::string& domain, const google::protobuf::Message& message)
 {
     auto builder = bsoncxx::builder::basic::document{};
     builder.append(bsoncxx::builder::basic::kvp("domain", bsoncxx::oid(domain.c_str(), domain.length())));
 
     if (not MessageToBson(message, builder)) {
-        return common::status::UNIMPLEMENTED;
+        return api::Status::UNIMPLEMENTED;
     }
 
     bsoncxx::stdx::optional<mongocxx::result::insert_one> result;
@@ -102,30 +102,30 @@ Result<std::string> ProtobufCollectionUntyped::CreateDocument(const std::string&
         int ec = e.code().value();
 
         if (ec == MONGO_UNIQUE_KEY_VIOLATION) {
-            return common::status::BAD_PAYLOAD;
+            return api::Status::INVALID_ARGUMENT;
         } else {
-            common::log::error({{"message", e.what()}});
-            return common::status::DATABASE_ERROR;
+            log::error({{"message", e.what()}});
+            return api::Status::INTERNAL;
         }
     }
 
     if (not result or result.value().result().inserted_count() != 1) {
-        return common::status::DATABASE_ERROR;
+        return api::Status::INTERNAL;
     }
 
     return {OIDToString(result->inserted_id())};
 }
 
-Result<Void> ProtobufCollectionUntyped::UpdateDocument(const std::string& oid, const std::string& domain, const google::protobuf::Message& message)
+api::Result<void> ProtobufCollectionUntyped::UpdateDocument(const std::string& oid, const std::string& domain, const google::protobuf::Message& message)
 {
     if (not ValidateIsOid(oid)) {
-        return common::status::BAD_PAYLOAD;
+        return api::Status::INVALID_ARGUMENT;
     }
 
     auto builder = bsoncxx::builder::basic::document{};
     auto nested = bsoncxx::builder::basic::document{};
     if (not MessageToBson(message, nested)) {
-        return common::status::UNIMPLEMENTED;
+        return api::Status::UNIMPLEMENTED;
     }
     builder.append(bsoncxx::builder::basic::kvp("$set", nested));
 
@@ -133,21 +133,21 @@ Result<Void> ProtobufCollectionUntyped::UpdateDocument(const std::string& oid, c
     try {
         result = d->collection.update_one(BuildIDAndDomainFilter(oid, domain), builder.view());
     } catch (const mongocxx::exception& e) {
-        common::log::error({{"message", e.what()}});
-        return common::status::DATABASE_ERROR;
+        log::error({{"message", e.what()}});
+        return api::Status::INTERNAL;
     }
 
     if (not result or result.value().modified_count() == 0) {
-        return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
+        return {api::Status::NOT_FOUND, "no such resource"};
     }
 
-    return grpc::Status::OK;
+    return api::Status::OK;
 }
 
-Result<Void> ProtobufCollectionUntyped::DeleteDocument(const std::string& oid, const std::string& domain)
+api::Result<void> ProtobufCollectionUntyped::DeleteDocument(const std::string& oid, const std::string& domain)
 {
     if (not ValidateIsOid(oid)) {
-        return common::status::BAD_PAYLOAD;
+        return api::Status::INVALID_ARGUMENT;
     }
 
     bsoncxx::stdx::optional<mongocxx::result::delete_result> result;
@@ -155,15 +155,15 @@ Result<Void> ProtobufCollectionUntyped::DeleteDocument(const std::string& oid, c
     try {
         result = d->collection.delete_one(BuildIDAndDomainFilter(oid, domain));
     } catch (const mongocxx::exception& e) {
-        common::log::error({{"message", e.what()}});
-        return common::status::DATABASE_ERROR;
+        log::error({{"message", e.what()}});
+        return api::Status::INTERNAL;
     }
 
     if (not result.has_value() or result.value().deleted_count() != 1) {
-        return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
+        return {api::Status::NOT_FOUND, "no such resource"};
     }
 
-    return grpc::Status::OK;
+    return api::Status::OK;
 }
 
 }
