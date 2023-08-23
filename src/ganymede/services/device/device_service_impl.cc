@@ -10,6 +10,7 @@
 #include <mongocxx/client.hpp>
 #include <mongocxx/collection.hpp>
 #include <mongocxx/database.hpp>
+#include <mongocxx/pool.hpp>
 
 #include <grpcpp/grpcpp.h>
 
@@ -57,24 +58,66 @@ bool ValidateIsMacAddress(const std::string& mac)
 namespace ganymede::services::device {
 
 struct DeviceServiceImpl::Priv {
-    mongocxx::client client;
-
-    mongocxx::database database;
-    mongo::ProtobufCollection<Device> deviceCollection;
-    mongo::ProtobufCollection<Config> configCollection;
+    mongocxx::pool pool;
 
     std::shared_ptr<auth::AuthValidator> authValidator;
 
     std::function<std::chrono::system_clock::time_point()> now;
 
     Priv(const std::string& mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator, std::function<std::chrono::system_clock::time_point()> now)
-        : client(mongocxx::uri{ mongo_uri })
-        , database(client["configurations"])
-        , deviceCollection(database["devices"])
-        , configCollection(database["configurations"])
+        : pool(mongocxx::uri{ mongo_uri })
         , authValidator(authValidator)
         , now(now)
     {
+    }
+
+    mongo::ProtobufCollection<Device> Devices(mongocxx::client& client)
+    {
+        return mongo::ProtobufCollection<Device>(client[DATABASE_NAME][DEVICE_COLLECTION_NAME]);
+    }
+
+    mongo::ProtobufCollection<Config> Configs(mongocxx::client& client)
+    {
+        return mongo::ProtobufCollection<Config>(client[DATABASE_NAME][CONFIG_COLLECTION_NAME]);
+    }
+
+    api::Result<void> ValidateInputDevice(const Device& input, const std::string& domain, mongocxx::client& client)
+    {
+        if (input.mac().empty() or not ValidateIsMacAddress(input.mac())) {
+            return api::Result<void>(api::Status::INVALID_ARGUMENT, "missing or invalid mac address");
+        }
+
+        if (not input.timezone().empty()) {
+            try {
+                date::get_tzdb().locate_zone(input.timezone());
+            } catch (const std::runtime_error& err) {
+                return { api::Status::INVALID_ARGUMENT, "unknown timezone" };
+            }
+        }
+
+        if (not Configs(client).Contains(input.config_uid(), domain)) {
+            return api::Result<void>(api::Status::NOT_FOUND, "no such config");
+        }
+
+        return {};
+    }
+
+    Device SanitizeInputDevice(const Device& input) const
+    {
+        Device device = RemoveUIDFromMessage(input);
+        device.clear_timezone_offset_minutes();
+        return device;
+    }
+
+    Device& ComputeOutputDevice(Device& device) const
+    {
+        if (not device.timezone().empty()) {
+            const auto tz = date::get_tzdb().locate_zone(device.timezone());
+            const auto offset = tz->get_info(now()).offset;
+            device.set_timezone_offset_minutes(std::chrono::duration_cast<std::chrono::minutes>(offset).count());
+        }
+
+        return device;
     }
 };
 
@@ -82,7 +125,9 @@ DeviceServiceImpl::DeviceServiceImpl(std::string mongo_uri, std::shared_ptr<auth
     : d(new Priv(mongo_uri, authValidator, now))
 {
     date::get_tzdb();
-    d->deviceCollection.CreateUniqueIndex(Device::kMacFieldNumber);
+
+    auto client = d->pool.acquire();
+    d->Devices(*client).CreateUniqueIndex(Device::kMacFieldNumber);
 }
 
 DeviceServiceImpl::DeviceServiceImpl(DeviceServiceImpl&& other)
@@ -92,45 +137,6 @@ DeviceServiceImpl::DeviceServiceImpl(DeviceServiceImpl&& other)
 
 DeviceServiceImpl::~DeviceServiceImpl()
 {
-}
-
-Device DeviceServiceImpl::SanitizeInputDevice(const Device& input) const
-{
-    Device device = RemoveUIDFromMessage(input);
-    device.clear_timezone_offset_minutes();
-    return device;
-}
-
-api::Result<void> DeviceServiceImpl::ValidateInputDevice(const Device& input, const std::string& domain) const
-{
-    if (input.mac().empty() or not ValidateIsMacAddress(input.mac())) {
-        return api::Result<void>(api::Status::INVALID_ARGUMENT, "missing or invalid mac address");
-    }
-
-    if (not input.timezone().empty()) {
-        try {
-            date::get_tzdb().locate_zone(input.timezone());
-        } catch (const std::runtime_error& err) {
-            return { api::Status::INVALID_ARGUMENT, "unknown timezone" };
-        }
-    }
-
-    if (not d->configCollection.Contains(input.config_uid(), domain)) {
-        return api::Result<void>(api::Status::NOT_FOUND, "no such config");
-    }
-
-    return {};
-}
-
-Device& DeviceServiceImpl::ComputeOutputDevice(Device& device) const
-{
-    if (not device.timezone().empty()) {
-        const auto tz = date::get_tzdb().locate_zone(device.timezone());
-        const auto offset = tz->get_info(d->now()).offset;
-        device.set_timezone_offset_minutes(std::chrono::duration_cast<std::chrono::minutes>(offset).count());
-    }
-
-    return device;
 }
 
 grpc::Status DeviceServiceImpl::CreateDevice(grpc::ServerContext* context, const CreateDeviceRequest* request, Device* response)
@@ -146,15 +152,17 @@ grpc::Status DeviceServiceImpl::CreateDevice(grpc::ServerContext* context, const
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
     }
 
-    Device device = SanitizeInputDevice(request->device());
-    auto validation = ValidateInputDevice(device, domain);
+    auto client = d->pool.acquire();
+    Device device = d->SanitizeInputDevice(request->device());
+
+    auto validation = d->ValidateInputDevice(device, domain, *client);
     if (not validation) {
         return validation;
     }
 
-    auto result = d->deviceCollection.CreateDocument(domain, device);
+    auto result = d->Devices(*client).CreateDocument(domain, device);
     if (result) {
-        response->Swap(&ComputeOutputDevice(device));
+        response->Swap(&(d->ComputeOutputDevice(device)));
         response->set_uid(result.value());
     }
 
@@ -192,9 +200,10 @@ grpc::Status DeviceServiceImpl::GetDevice(grpc::ServerContext* context, const Ge
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "filter not set");
     }
 
-    auto result = d->deviceCollection.GetDocument(filter.view());
+    auto client = d->pool.acquire();
+    auto result = d->Devices(*client).GetDocument(filter.view());
     if (result) {
-        response->Swap(&(ComputeOutputDevice(result.value())));
+        response->Swap(&(d->ComputeOutputDevice(result.value())));
     }
 
     return result;
@@ -202,12 +211,16 @@ grpc::Status DeviceServiceImpl::GetDevice(grpc::ServerContext* context, const Ge
 
 grpc::Status DeviceServiceImpl::ListDevice(grpc::ServerContext* context, const ListDeviceRequest* request, ListDeviceResponse* response)
 {
+    log::info("request started", { { "context", reinterpret_cast<std::uint64_t>(context) } });
+
     auto auth = d->authValidator->ValidateRequestAuth(*context);
     if (not auth) {
+        log::info("request failed", { { "context", reinterpret_cast<std::uint64_t>(context) } });
         return auth;
     }
 
     const std::string& domain = auth.value().domain;
+    auto client = d->pool.acquire();
 
     bsoncxx::builder::basic::document filter;
     filter.append(bsoncxx::builder::basic::kvp("domain", domain));
@@ -219,9 +232,10 @@ grpc::Status DeviceServiceImpl::ListDevice(grpc::ServerContext* context, const L
         filter.append(bsoncxx::builder::basic::kvp(std::to_string(Device::kDisplayNameFieldNumber), name_filter.extract()));
     } break;
     case ListDeviceRequest::kConfigUid: {
-        if (d->configCollection.Contains(request->config_uid(), domain)) {
+        if (d->Configs(*client).Contains(request->config_uid(), domain)) {
             filter.append(bsoncxx::builder::basic::kvp(std::to_string(Device::kConfigUidFieldNumber), request->config_uid()));
         } else {
+            log::info("request failed", { { "context", reinterpret_cast<std::uint64_t>(context) } });
             return api::Result<void>(api::Status::NOT_FOUND, "no such config");
         }
     } break;
@@ -229,13 +243,14 @@ grpc::Status DeviceServiceImpl::ListDevice(grpc::ServerContext* context, const L
         break;
     }
 
-    auto result = d->deviceCollection.ListDocuments(filter.view());
+    auto result = d->Devices(*client).ListDocuments(filter.view());
     if (result) {
         for (auto& device : result.value()) {
-            response->add_devices()->Swap(&(ComputeOutputDevice(device)));
+            response->add_devices()->Swap(&(d->ComputeOutputDevice(device)));
         }
     }
 
+    log::info("request succeeded", { { "context", reinterpret_cast<std::uint64_t>(context) } });
     return result;
 }
 
@@ -252,16 +267,18 @@ grpc::Status DeviceServiceImpl::UpdateDevice(grpc::ServerContext* context, const
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
     }
 
+    auto client = d->pool.acquire();
     const std::string& id = request->device().uid();
-    const Device device = SanitizeInputDevice(request->device());
-    auto validation = ValidateInputDevice(device, domain);
+    const Device device = d->SanitizeInputDevice(request->device());
+
+    auto validation = d->ValidateInputDevice(device, domain, *client);
     if (not validation) {
         return validation;
     }
 
-    auto result = d->deviceCollection.UpdateDocument(id, domain, device);
+    auto result = d->Devices(*client).UpdateDocument(id, domain, device);
     if (result) {
-        response->Swap(&(ComputeOutputDevice(result.value())));
+        response->Swap(&(d->ComputeOutputDevice(result.value())));
     }
 
     return result;
@@ -276,7 +293,8 @@ grpc::Status DeviceServiceImpl::DeleteDevice(grpc::ServerContext* context, const
 
     const std::string& domain = auth.value().domain;
 
-    return d->deviceCollection.DeleteDocument(request->device_uid(), domain);
+    auto client = d->pool.acquire();
+    return d->Devices(*client).DeleteDocument(request->device_uid(), domain);
 }
 
 grpc::Status DeviceServiceImpl::CreateConfig(grpc::ServerContext* context, const CreateConfigRequest* request, Config* response)
@@ -292,7 +310,8 @@ grpc::Status DeviceServiceImpl::CreateConfig(grpc::ServerContext* context, const
         return api::Result<void>(api::Status::INVALID_ARGUMENT, "empty request");
     }
 
-    auto result = d->configCollection.CreateDocument(domain, RemoveUIDFromMessage(request->config()));
+    auto client = d->pool.acquire();
+    auto result = d->Configs(*client).CreateDocument(domain, RemoveUIDFromMessage(request->config()));
     if (result) {
         response->CopyFrom(request->config());
         response->set_uid(result.value());
@@ -310,7 +329,8 @@ grpc::Status DeviceServiceImpl::GetConfig(grpc::ServerContext* context, const Ge
 
     const std::string& domain = auth.value().domain;
 
-    if (auto result = d->configCollection.GetDocument(request->config_uid(), domain)) {
+    auto client = d->pool.acquire();
+    if (auto result = d->Configs(*client).GetDocument(request->config_uid(), domain)) {
         response->Swap(&result.value());
     } else {
         return grpc::Status(grpc::StatusCode::NOT_FOUND, "no such device");
@@ -319,9 +339,37 @@ grpc::Status DeviceServiceImpl::GetConfig(grpc::ServerContext* context, const Ge
     return grpc::Status::OK;
 }
 
-grpc::Status DeviceServiceImpl::ListConfig(grpc::ServerContext* /* context */, const ListConfigRequest* /* request */, ListConfigResponse* /* response */)
+grpc::Status DeviceServiceImpl::ListConfig(grpc::ServerContext* context, const ListConfigRequest* request, ListConfigResponse* response)
 {
-    return api::Result<void>(api::Status::UNIMPLEMENTED);
+    log::info("request started", { { "context", reinterpret_cast<std::uint64_t>(context) } });
+
+    auto auth = d->authValidator->ValidateRequestAuth(*context);
+    if (not auth) {
+        log::info("request failed", { { "context", reinterpret_cast<std::uint64_t>(context) } });
+        return auth;
+    }
+
+    const std::string& domain = auth.value().domain;
+    auto client = d->pool.acquire();
+
+    bsoncxx::builder::basic::document filter;
+    filter.append(bsoncxx::builder::basic::kvp("domain", domain));
+
+    if (not request->name_filter().empty()) {
+        bsoncxx::builder::basic::document name_filter;
+        name_filter.append(bsoncxx::builder::basic::kvp(std::string("$regex"), request->name_filter()));
+        filter.append(bsoncxx::builder::basic::kvp(std::to_string(Config::kDisplayNameFieldNumber), name_filter.extract()));
+    }
+
+    auto result = d->Configs(*client).ListDocuments(filter.view());
+    if (result) {
+        for (auto& config : result.value()) {
+            response->add_configs()->Swap(&config);
+        }
+    }
+
+    log::info("request succeeded", { { "context", reinterpret_cast<std::uint64_t>(context) } });
+    return result;
 }
 
 grpc::Status DeviceServiceImpl::UpdateConfig(grpc::ServerContext* context, const UpdateConfigRequest* request, Config* response)
@@ -340,7 +388,8 @@ grpc::Status DeviceServiceImpl::UpdateConfig(grpc::ServerContext* context, const
     std::string id = request->config().uid();
     const Config& config = RemoveUIDFromMessage(request->config());
 
-    auto result = d->configCollection.UpdateDocument(id, domain, config);
+    auto client = d->pool.acquire();
+    auto result = d->Configs(*client).UpdateDocument(id, domain, config);
     if (result) {
         response->Swap(&result.value());
     }
@@ -357,7 +406,8 @@ grpc::Status DeviceServiceImpl::DeleteConfig(grpc::ServerContext* context, const
 
     const std::string& domain = auth.value().domain;
 
-    return d->configCollection.DeleteDocument(request->config_uid(), domain);
+    auto client = d->pool.acquire();
+    return d->Configs(*client).DeleteDocument(request->config_uid(), domain);
 }
 
 } // namespace ganymede::services::device

@@ -23,10 +23,6 @@ public:
     DeviceServiceImpl(std::string mongo_uri, std::shared_ptr<auth::AuthValidator> authValidator, std::function<std::chrono::system_clock::time_point()> now = std::chrono::system_clock::now);
     ~DeviceServiceImpl();
 
-    Device SanitizeInputDevice(const Device& input) const;
-    api::Result<void> ValidateInputDevice(const Device& input, const std::string& domain) const;
-    Device& ComputeOutputDevice(Device& device) const;
-
     grpc::Status CreateDevice(grpc::ServerContext* context, const CreateDeviceRequest* request, Device* response) override;
     grpc::Status GetDevice(grpc::ServerContext* context, const GetDeviceRequest* request, Device* response) override;
     grpc::Status ListDevice(grpc::ServerContext* context, const ListDeviceRequest* request, ListDeviceResponse* response) override;

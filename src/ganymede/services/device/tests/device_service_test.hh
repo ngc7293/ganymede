@@ -20,10 +20,10 @@ public:
     {
     }
 
-    std::string MakeConfig()
+    std::string MakeConfig(std::string name = "")
     {
         ganymede::services::device::CreateConfigRequest request;
-        (void)request.mutable_config();
+        request.mutable_config()->set_display_name(name);
 
         auto result = Call(&ganymede::services::device::DeviceServiceImpl::CreateConfig, request);
         return result.value().uid();

@@ -289,6 +289,14 @@ TEST_F(DeviceServiceTest, should_list_devices_by_config)
     }
 }
 
+TEST_F(DeviceServiceTest, should_list_device_with_empty_response)
+{
+    ganymede::services::device::ListDeviceRequest request;
+    auto response = Call(&ganymede::services::device::DeviceServiceImpl::ListDevice, request).value();
+
+    ASSERT_EQ(response.devices_size(), 0);
+}
+
 TEST_F(DeviceServiceTest, should_list_all_devices)
 {
     auto config = MakeConfig();
@@ -322,4 +330,138 @@ TEST_F(DeviceServiceTest, should_list_all_devices)
     EXPECT_EQ(response.devices(0).mac(), "00:00:00:00:00:01");
     EXPECT_EQ(response.devices(1).mac(), "00:00:00:00:00:02");
     EXPECT_EQ(response.devices(2).mac(), "00:00:00:00:00:03");
+}
+
+
+TEST_F(DeviceServiceTest, should_list_devices_filtered_by_name)
+{
+    auto config = MakeConfig();
+
+    {
+        ganymede::services::device::CreateDeviceRequest request;
+        request.mutable_device()->set_display_name("first device");
+        request.mutable_device()->set_mac("00:00:00:00:00:01");
+        request.mutable_device()->set_config_uid(config);
+        Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
+    }
+    {
+        ganymede::services::device::CreateDeviceRequest request;
+        request.mutable_device()->set_display_name("second device with longer name");
+        request.mutable_device()->set_mac("00:00:00:00:00:02");
+        request.mutable_device()->set_config_uid(config);
+        Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
+    }
+    {
+        ganymede::services::device::CreateDeviceRequest request;
+        request.mutable_device()->set_display_name("something else");
+        request.mutable_device()->set_mac("00:00:00:00:00:03");
+        request.mutable_device()->set_config_uid(MakeConfig()); // Unique config
+        Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
+    }
+
+    {
+        ganymede::services::device::ListDeviceRequest request;
+        request.set_name_filter("device");
+        auto response = Call(&ganymede::services::device::DeviceServiceImpl::ListDevice, request).value();
+
+        ASSERT_EQ(response.devices_size(), 2);
+        EXPECT_EQ(response.devices(0).mac(), "00:00:00:00:00:01");
+        EXPECT_EQ(response.devices(1).mac(), "00:00:00:00:00:02");
+    }
+    {
+        ganymede::services::device::ListDeviceRequest request;
+        request.set_name_filter("foobar");
+        auto response = Call(&ganymede::services::device::DeviceServiceImpl::ListDevice, request).value();
+        EXPECT_EQ(response.devices_size(), 0);
+    }
+}
+
+TEST_F(DeviceServiceTest, should_list_devices_filtered_by_config)
+{
+    auto config = MakeConfig();
+
+    {
+        ganymede::services::device::CreateDeviceRequest request;
+        request.mutable_device()->set_display_name("first device");
+        request.mutable_device()->set_mac("00:00:00:00:00:01");
+        request.mutable_device()->set_config_uid(config);
+        Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
+    }
+    {
+        ganymede::services::device::CreateDeviceRequest request;
+        request.mutable_device()->set_display_name("second device with longer name");
+        request.mutable_device()->set_mac("00:00:00:00:00:02");
+        request.mutable_device()->set_config_uid(config);
+        Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
+    }
+    {
+        ganymede::services::device::CreateDeviceRequest request;
+        request.mutable_device()->set_display_name("something else");
+        request.mutable_device()->set_mac("00:00:00:00:00:03");
+        request.mutable_device()->set_config_uid(MakeConfig()); // Unique config
+        Call(&ganymede::services::device::DeviceServiceImpl::CreateDevice, request);
+    }
+
+    {
+        ganymede::services::device::ListDeviceRequest request;
+        request.set_config_uid(config);
+        auto response = Call(&ganymede::services::device::DeviceServiceImpl::ListDevice, request).value();
+
+        ASSERT_EQ(response.devices_size(), 2);
+        EXPECT_EQ(response.devices(0).mac(), "00:00:00:00:00:01");
+        EXPECT_EQ(response.devices(1).mac(), "00:00:00:00:00:02");
+    }
+    {
+        ganymede::services::device::ListDeviceRequest request;
+        request.set_config_uid(MakeConfig());
+        auto response = Call(&ganymede::services::device::DeviceServiceImpl::ListDevice, request).value();
+        EXPECT_EQ(response.devices_size(), 0);
+    }
+}
+
+TEST_F(DeviceServiceTest, should_list_all_configs)
+{
+    MakeConfig("first config");
+    MakeConfig("second config");
+    MakeConfig("something else");
+
+    ganymede::services::device::ListConfigRequest request;
+    auto response = Call(&ganymede::services::device::DeviceServiceImpl::ListConfig, request).value();
+
+    ASSERT_EQ(response.configs_size(), 3);
+    EXPECT_EQ(response.configs(0).display_name(), "first config");
+    EXPECT_EQ(response.configs(1).display_name(), "second config");
+    EXPECT_EQ(response.configs(2).display_name(), "something else");
+}
+
+TEST_F(DeviceServiceTest, should_list_configs_filtered_by_name)
+{
+    MakeConfig("first config");
+    MakeConfig("second config");
+    MakeConfig("something else");
+
+    ganymede::services::device::ListConfigRequest request;
+    request.set_name_filter("config");
+    auto response = Call(&ganymede::services::device::DeviceServiceImpl::ListConfig, request).value();
+
+    ASSERT_EQ(response.configs_size(), 2);
+    EXPECT_EQ(response.configs(0).display_name(), "first config");
+    EXPECT_EQ(response.configs(1).display_name(), "second config");
+}
+
+TEST_F(DeviceServiceTest, should_list_all_configs_with_empty_response)
+{
+    ganymede::services::device::ListConfigRequest request;
+    auto response = Call(&ganymede::services::device::DeviceServiceImpl::ListConfig, request).value();
+
+    ASSERT_EQ(response.configs_size(), 0);
+
+    MakeConfig("first config");
+    MakeConfig("second config");
+    MakeConfig("something else");
+
+    request.set_name_filter("foobar");
+    response = Call(&ganymede::services::device::DeviceServiceImpl::ListConfig, request).value();
+
+    ASSERT_EQ(response.configs_size(), 0);
 }

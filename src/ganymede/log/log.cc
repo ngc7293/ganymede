@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iostream>
+#include <mutex>
 
 #include <ctime>
 
@@ -29,21 +30,27 @@ void Log::AddSink(std::unique_ptr<LogSink>&& sink)
 
 void StdIoLogSink::Output(Level level, const std::string& message, const nlohmann::json& json) const
 {
+    static std::mutex stream_mutex{};
+
     const static char* LOG_LEVEL_STR[] = { "INVALID", "INFO", "WARNING", "ERROR" };
+    std::stringstream line;
 
     const time_t now = time(NULL);
     const struct tm* utcnow = std::gmtime(&now);
     char rfc3339[24] = { 0 };
     std::strftime(rfc3339, sizeof(rfc3339), "%F %TZ", utcnow);
 
-    auto& stream = (level <= Level::INFO ? std::cout : std::cerr);
-    stream << "[" << rfc3339 << "] " << LOG_LEVEL_STR[static_cast<std::size_t>(level)] << ": " << message;
+    line << "[" << rfc3339 << "] " << LOG_LEVEL_STR[static_cast<std::size_t>(level)] << ": " << message;
 
     if (not json.empty()) {
-        stream << " " << json.dump();
+        line << " " << json.dump();
     }
 
-    stream << std::endl;
+    {
+        std::lock_guard _(stream_mutex);
+        auto& stream = (level <= Level::INFO ? std::cout : std::cerr);
+        stream << line.str() << std::endl;
+    }
 }
 
 void error(const std::string& message, const nlohmann::json& json)
