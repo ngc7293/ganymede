@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+import "ganymede/v2/common.proto";
+
+package ganymede.v2.configurations;
+
+message LightProfile {
+    message ControlPoint {
+        TimeOfDay moment = 1;
+        uint32 intensity = 2;
+    }
+
+    repeated ControlPoint control_points = 1;
+}

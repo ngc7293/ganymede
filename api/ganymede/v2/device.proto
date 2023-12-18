@@ -1,25 +1,80 @@
 syntax = "proto3";
 
-import "google/protobuf/empty.proto";
+
+import "ganymede/v2/configurations/gpio_light.proto";
+import "ganymede/v2/configurations/light_profile.proto";
 
 package ganymede.v2;
 
-// Service definition
-service DeviceService {
-    rpc CreateDevice(CreateDeviceRequest) returns (Device);
-    rpc UpdateDevice(UpdateDeviceRequest) returns (Device);
-    rpc GetDevice(GetDeviceRequest) returns (Device);
-    rpc ListDevice(ListDeviceRequest) returns (ListDeviceResponse);
-    rpc DeleteDevice(DeleteDeviceRequest) returns (google.protobuf.Empty);
-
-    rpc CreateConfig(CreateConfigRequest) returns (Config);
-    rpc UpdateConfig(UpdateConfigRequest) returns (Config);
-    rpc GetConfig(GetConfigRequest) returns (Config);
-    rpc ListConfig(ListConfigRequest) returns (ListConfigResponse);
-    rpc DeleteConfig(DeleteConfigRequest) returns (google.protobuf.Empty);
+message ListFeatureRequest {
 }
 
-// Requests and responses
+message ListFeatureResponse {
+    repeated Feature features = 1;
+}
+
+message GetFeatureRequest {
+    string name = 1;
+}
+
+message CreateFeatureRequest {
+    Feature feature = 1;
+}
+
+message UpdateFeatureRequest {
+    Feature feature = 1;
+}
+
+message DeleteFeatureRequest {
+    string name = 1;
+}
+
+message ListProfileRequest {
+}
+
+message ListProfileResponse {
+    repeated Profile profiles = 1;
+}
+
+message GetProfileRequest {
+    string name = 1;
+}
+
+message CreateProfileRequest {
+    Profile profile = 1;
+}
+
+message UpdateProfileRequest {
+    Profile profile = 1;
+}
+
+message DeleteProfileRequest {
+    string name = 1;
+}
+
+message ListDeviceTypeRequest {
+}
+
+message ListDeviceTypeResponse {
+    repeated DeviceType device_types = 1;
+}
+
+message GetDeviceTypeRequest {
+    string name = 1;
+}
+
+message CreateDeviceTypeRequest {
+    DeviceType device_type = 1;
+}
+
+message UpdateDeviceTypeRequest {
+    DeviceType device_type = 1;
+}
+
+message DeleteDeviceTypeRequest {
+    string name = 1;
+}
+
 message CreateDeviceRequest {
     Device device = 1;
 }
@@ -29,17 +84,10 @@ message UpdateDeviceRequest {
 }
 
 message GetDeviceRequest {
-    oneof filter {
-        string device_uid = 1;
-        string device_mac = 2;
-    }
+    string name = 1;
 }
 
 message ListDeviceRequest {
-    oneof filter {
-        string name_filter = 1;
-        string config_uid = 2;
-    }
 }
 
 message ListDeviceResponse {
@@ -47,94 +95,101 @@ message ListDeviceResponse {
 }
 
 message DeleteDeviceRequest {
-    string device_uid = 1;
-    string reason = 2;
+    string name = 1;
 }
 
-message CreateConfigRequest {
-    Config config = 1;
+message PollDeviceRequest {
+    string device_mac = 1;
 }
 
-message GetConfigRequest {
-    string config_uid = 1;
-}
-
-message ListConfigRequest {
-    string name_filter = 1;
-}
-
-message ListConfigResponse {
-    repeated Config configs = 1;
-}
-
-message UpdateConfigRequest {
-    Config config = 1;
-}
-
-message DeleteConfigRequest {
-    string config_uid = 1;
-    string reason = 2;
-
-    string replacement_config_uid = 3;
-}
-
-message DeleteConfigResponse {
+message PollDeviceResponse {
 
 }
 
 // Primitive message types
-message Device {
+enum FeatureType {
+    FEATURE_TYPE_UNSPECIFIED = 0;
+    FEATURE_TYPE_LIGHT = 1;
+}
+
+enum ComponentType {
+    COMPONENT_TYPE_UNSPECIFIED = 0;
+    COMPONENT_TYPE_GPIO_LIGHT = 1;
+}
+
+message Feature {
     // Output only.
-    string uid = 1;
+    string name = 1;
 
-    string mac = 2;
+    string display_name = 10;
+    FeatureType feature_type = 11;
+}
 
-    // Required.
+message Profile {
+    // Output only.
+    string name = 1;
+
     string display_name = 10;
 
-    string description = 11;
-
-    // Device timezone in IANA <zone>/<city> format
-    string timezone = 12;
-
-    // Output only. Current device's offset from UTC (including DST if applicable)
-    int64 timezone_offset_minutes = 13;
-
-    string config_uid = 20;
+    repeated FeatureProfile feature_profiles = 11;
 }
 
-message Time {
-    uint32 hour = 1;
-    uint32 minute = 2;
-    uint32 second = 3;
-}
+message FeatureProfile {
+    // Output only.
+    string name = 1;
 
-message Luminaire {
-    message DailySchedule {
-        Time start = 1;
-        Time stop = 2;
+    string display_name = 10;
+    string feature_name = 11;
 
-        // 0-255. If use_pwm is false, any non-zero value will be interpreted as "fully-on"
-        uint32 intensity = 3; 
+    oneof config {
+        ganymede.v2.configurations.LightProfile light_profile = 20;
     }
 
-    uint32 port = 1;
-    bool use_pwm = 2;
-
-    repeated DailySchedule photo_period = 3;
+    // Output only. Feature information for this DeviceFeature
+    Feature feature = 100;
 }
 
-message LightConfig {
-    repeated Luminaire luminaires = 1;
-}
-
-message Config {
+message DeviceType {
     // Output only.
-    string uid = 1;
+    string name = 1;
 
-    string display_name = 2;
+    string display_name = 10;
+    string profile_name = 11;
 
-    reserved 10, 11;
-    reserved "pomp_config", "solution_config";
-    LightConfig light_config = 12;
+    repeated DeviceFeature devide_features = 12;
+
+    // Output only. Feature information for this DeviceFeature
+    Profile profile = 100;
+}
+
+message DeviceFeature {
+    // Output only.
+    string name = 1;
+
+    string display_name = 10;
+    string feature_name = 11;
+    ComponentType component_type = 12;
+
+    oneof config {
+        ganymede.v2.configurations.GpioLight gpio_light = 20;
+    };
+
+    // Output only. Feature information for this DeviceFeature
+    Feature feature = 100;
+}
+
+message Device {
+    // Output only.
+    string name = 1;
+    
+    string mac = 2;
+    string display_name = 10;
+    string description = 11;
+    string device_type_name = 12;
+
+    // Device timezone in IANA <zone>/<city> format
+    string timezone = 13;
+
+    // Output only. DeviceType information for this device
+    DeviceType device_type = 100;
 }

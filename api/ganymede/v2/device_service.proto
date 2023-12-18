@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+import "ganymede/v2/device.proto";
+
+package ganymede.v2;
+
+// Service definition
+service DeviceService {
+    rpc ListFeature(ListFeatureRequest) returns (ListFeatureResponse);
+    rpc GetFeature(GetFeatureRequest) returns (Feature);
+    rpc CreateFeature(CreateFeatureRequest) returns (Feature);
+    rpc UpdateFeature(UpdateFeatureRequest) returns (Feature);
+    rpc DeleteFeature(DeleteFeatureRequest) returns (google.protobuf.Empty);
+
+    rpc ListProfile(ListProfileRequest) returns (ListProfileResponse);
+    rpc GetProfile(GetProfileRequest) returns (Profile);
+    rpc CreateProfile(CreateProfileRequest) returns (Profile);
+    rpc UpdateProfile(UpdateProfileRequest) returns (Profile);
+    rpc DeleteProfile(DeleteProfileRequest) returns (google.protobuf.Empty);
+
+    rpc ListDeviceType(ListDeviceTypeRequest) returns (ListDeviceTypeResponse);
+    rpc GetDeviceType(GetDeviceTypeRequest) returns (DeviceType);
+    rpc CreateDeviceType(CreateDeviceTypeRequest) returns (DeviceType);
+    rpc UpdateDeviceType(UpdateDeviceTypeRequest) returns (DeviceType);
+    rpc DeleteDeviceType(DeleteDeviceTypeRequest) returns (google.protobuf.Empty);
+
+    rpc ListDevice(ListDeviceRequest) returns (ListDeviceResponse);
+    rpc GetDevice(GetDeviceRequest) returns (Device);
+    rpc CreateDevice(CreateDeviceRequest) returns (Device);
+    rpc UpdateDevice(UpdateDeviceRequest) returns (Device);
+    rpc DeleteDevice(DeleteDeviceRequest) returns (google.protobuf.Empty);
+
+    rpc PollDevice(PollDeviceRequest) returns (PollDeviceResponse);
+
+}

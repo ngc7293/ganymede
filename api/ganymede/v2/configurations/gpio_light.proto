@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package ganymede.v2.configurations;
+
+message GpioLight {
+    uint32 port = 1;
+    bool active_high = 2;
+}
