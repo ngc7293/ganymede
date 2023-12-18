@@ -33,26 +33,16 @@ struct Claims {
 pub fn authenticate<T>(request: &tonic::Request<T>) -> Result<Uuid, tonic::Status> {
     let header = match request.metadata().get("authorization") {
         Some(header) => header,
-        None => {
-            return Err(tonic::Status::unauthenticated(
-                "Missing authorization header",
-            ))
-        }
+        None => return Err(tonic::Status::unauthenticated("Missing authorization header")),
     };
 
     let header_ascii = match header.to_str() {
         Ok(ascii) => ascii,
-        Err(_) => {
-            return Err(tonic::Status::unauthenticated(
-                "Invalid authorization token",
-            ))
-        }
+        Err(_) => return Err(tonic::Status::unauthenticated("Invalid authorization token")),
     };
 
     if !header_ascii.starts_with("Bearer ") {
-        return Err(tonic::Status::unauthenticated(
-            "Invalid authorization token",
-        ));
+        return Err(tonic::Status::unauthenticated("Invalid authorization token"));
     }
 
     let decoding_key = match DecodingKey::from_rsa_pem(AUTH0_KEY.as_bytes()) {
@@ -69,20 +59,12 @@ pub fn authenticate<T>(request: &tonic::Request<T>) -> Result<Uuid, tonic::Statu
         &Validation::new(jsonwebtoken::Algorithm::RS256),
     ) {
         Ok(token) => token,
-        Err(_) => {
-            return Err(tonic::Status::unauthenticated(
-                "Invalid authorization token",
-            ))
-        }
+        Err(_) => return Err(tonic::Status::unauthenticated("Invalid authorization token")),
     };
 
     let domain_id = match Uuid::try_parse(&token.claims.domain_id) {
         Ok(header) => header,
-        Err(_) => {
-            return Err(tonic::Status::unauthenticated(
-                "Invalid authorization token",
-            ))
-        }
+        Err(_) => return Err(tonic::Status::unauthenticated("Invalid authorization token")),
     };
 
     Ok(domain_id)

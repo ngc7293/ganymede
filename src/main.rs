@@ -9,9 +9,11 @@ use ganymede::v2::measurements_service_server::MeasurementsServiceServer;
 
 pub mod auth;
 pub mod device;
+pub mod error;
 pub mod ganymede;
-pub mod types;
 pub mod measurements;
+pub mod name;
+pub mod types;
 
 #[derive(serde::Deserialize)]
 struct Settings {

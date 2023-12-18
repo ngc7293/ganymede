@@ -2,15 +2,7 @@ use std::result::Result;
 
 use tonic::{Request, Response, Status};
 
-use crate::auth::authenticate;
-use crate::ganymede;
-use crate::types::mac::Mac;
-
-use super::config::errors::ConfigError;
-use super::database::DomainDatabase;
-use super::device::errors::DeviceError;
-use super::device::model::DeviceModel;
-use super::device::operations::{DeviceFilter, UniqueDeviceFilter};
+use crate::ganymede::{self, v2::PollDeviceResponse};
 
 pub struct DeviceService {
     dbpool: sqlx::Pool<sqlx::Postgres>,
@@ -20,227 +12,155 @@ impl DeviceService {
     pub fn new(pool: sqlx::Pool<sqlx::Postgres>) -> Self {
         DeviceService { dbpool: pool }
     }
+
+    pub fn pool(&self) -> &sqlx::Pool<sqlx::Postgres> {
+        &self.dbpool
+    }
 }
 
 #[tonic::async_trait]
 impl ganymede::v2::device_service_server::DeviceService for DeviceService {
-    async fn create_device(
+    async fn list_feature(
         &self,
-        request: Request<ganymede::v2::CreateDeviceRequest>,
-    ) -> Result<Response<ganymede::v2::Device>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
-
-        let payload = request.into_inner();
-
-        let device = match payload.device {
-            Some(device) => device,
-            None => return Err(Status::invalid_argument("Missing device")),
-        };
-
-        let model: DeviceModel = device.try_into()?;
-        let result = database.insert_device(model).await?;
-        Ok(Response::new(
-            result
-                .try_into()
-                .map_err(|_| Status::internal("unhandled error"))?,
-        ))
+        request: Request<ganymede::v2::ListFeatureRequest>,
+    ) -> Result<Response<ganymede::v2::ListFeatureResponse>, Status> {
+        return self.list_feature_inner(request).await;
     }
 
-    async fn update_device(
+    async fn get_feature(
         &self,
-        request: Request<ganymede::v2::UpdateDeviceRequest>,
-    ) -> Result<Response<ganymede::v2::Device>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
-
-        let payload = request.into_inner();
-
-        let device = match payload.device {
-            Some(device) => device,
-            None => return Err(Status::invalid_argument("Missing device")),
-        };
-
-        let model = device.try_into()?;
-        let result = database.update_device(model).await?;
-        Ok(Response::new(result.try_into()?))
+        request: Request<ganymede::v2::GetFeatureRequest>,
+    ) -> Result<Response<ganymede::v2::Feature>, Status> {
+        return self.get_feature_inner(request).await;
     }
 
-    async fn get_device(
+    async fn create_feature(
         &self,
-        request: Request<ganymede::v2::GetDeviceRequest>,
-    ) -> Result<Response<ganymede::v2::Device>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
+        request: Request<ganymede::v2::CreateFeatureRequest>,
+    ) -> Result<Response<ganymede::v2::Feature>, Status> {
+        return self.create_feature_inner(request).await;
+    }
 
-        let payload = request.into_inner();
+    async fn update_feature(
+        &self,
+        request: Request<ganymede::v2::UpdateFeatureRequest>,
+    ) -> Result<Response<ganymede::v2::Feature>, Status> {
+        return self.update_feature_inner(request).await;
+    }
 
-        let filter = match payload.filter {
-            Some(filter) => match filter {
-                ganymede::v2::get_device_request::Filter::DeviceUid(device_id) => {
-                    match uuid::Uuid::try_parse(&device_id) {
-                        Ok(uuid) => UniqueDeviceFilter::DeviceId(uuid),
-                        Err(_) => Err(DeviceError::InvalidDeviceId)?,
-                    }
-                }
-                ganymede::v2::get_device_request::Filter::DeviceMac(device_mac) => {
-                    match Mac::try_from(device_mac) {
-                        Ok(mac) => UniqueDeviceFilter::DeviceMac(mac),
-                        Err(_) => Err(DeviceError::InvalidMac)?,
-                    }
-                }
-            },
-            None => {
-                return Err(Status::invalid_argument(
-                    "You must provide one of device_id or device_mac",
-                ))
-            }
-        };
+    async fn delete_feature(
+        &self,
+        request: Request<ganymede::v2::DeleteFeatureRequest>,
+    ) -> Result<Response<()>, Status> {
+        return self.delete_feature_inner(request).await;
+    }
 
-        let result = database.fetch_one_device(filter).await?;
-        Ok(Response::new(result.try_into()?))
+    async fn list_profile(
+        &self,
+        _request: Request<ganymede::v2::ListProfileRequest>,
+    ) -> Result<Response<ganymede::v2::ListProfileResponse>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
+    }
+
+    async fn get_profile(
+        &self,
+        _request: Request<ganymede::v2::GetProfileRequest>,
+    ) -> Result<Response<ganymede::v2::Profile>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
+    }
+
+    async fn create_profile(
+        &self,
+        _request: Request<ganymede::v2::CreateProfileRequest>,
+    ) -> Result<Response<ganymede::v2::Profile>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
+    }
+
+    async fn update_profile(
+        &self,
+        _request: Request<ganymede::v2::UpdateProfileRequest>,
+    ) -> Result<Response<ganymede::v2::Profile>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
+    }
+
+    async fn delete_profile(
+        &self,
+        _request: Request<ganymede::v2::DeleteProfileRequest>,
+    ) -> Result<Response<()>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
+    }
+
+    async fn list_device_type(
+        &self,
+        _request: Request<ganymede::v2::ListDeviceTypeRequest>,
+    ) -> Result<Response<ganymede::v2::ListDeviceTypeResponse>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
+    }
+
+    async fn get_device_type(
+        &self,
+        _request: Request<ganymede::v2::GetDeviceTypeRequest>,
+    ) -> Result<Response<ganymede::v2::DeviceType>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
+    }
+
+    async fn create_device_type(
+        &self,
+        _request: Request<ganymede::v2::CreateDeviceTypeRequest>,
+    ) -> Result<Response<ganymede::v2::DeviceType>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
+    }
+
+    async fn update_device_type(
+        &self,
+        _request: Request<ganymede::v2::UpdateDeviceTypeRequest>,
+    ) -> Result<Response<ganymede::v2::DeviceType>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
+    }
+
+    async fn delete_device_type(
+        &self,
+        _request: Request<ganymede::v2::DeleteDeviceTypeRequest>,
+    ) -> Result<Response<()>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
     }
 
     async fn list_device(
         &self,
         request: Request<ganymede::v2::ListDeviceRequest>,
     ) -> Result<Response<ganymede::v2::ListDeviceResponse>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
-
-        let payload = request.into_inner();
-        let filter = match payload.filter {
-            Some(filter) => match filter {
-                ganymede::v2::list_device_request::Filter::ConfigUid(config_id) => {
-                    match uuid::Uuid::try_parse(&config_id) {
-                        Ok(uuid) => DeviceFilter::ConfigId(uuid),
-                        Err(_) => Err(DeviceError::InvalidConfigId)?,
-                    }
-                }
-                ganymede::v2::list_device_request::Filter::NameFilter(name_filter) => {
-                    DeviceFilter::NameFilter(name_filter)
-                }
-            },
-            None => DeviceFilter::None,
-        };
-
-        let results = database.fetch_many_device(filter).await?;
-        Ok(Response::new(ganymede::v2::ListDeviceResponse {
-            devices: results
-                .into_iter()
-                .map(|result| result.try_into())
-                .collect::<Result<Vec<ganymede::v2::Device>, DeviceError>>()?,
-        }))
+        return self.list_device_internal(request).await;
     }
 
-    async fn delete_device(
+    async fn get_device(
         &self,
-        request: Request<ganymede::v2::DeleteDeviceRequest>,
-    ) -> Result<Response<()>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
-
-        let payload = request.into_inner();
-
-        let device_id = match uuid::Uuid::try_parse(&payload.device_uid) {
-            Ok(device_id) => device_id,
-            Err(_) => Err(DeviceError::InvalidDeviceId)?,
-        };
-
-        database.delete_device(&device_id).await?;
-        Ok(Response::new(()))
+        request: Request<ganymede::v2::GetDeviceRequest>,
+    ) -> Result<Response<ganymede::v2::Device>, Status> {
+        return self.get_device_internal(request).await;
     }
 
-    async fn create_config(
+    async fn create_device(
         &self,
-        request: Request<ganymede::v2::CreateConfigRequest>,
-    ) -> Result<Response<ganymede::v2::Config>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
-
-        let payload = request.into_inner();
-        let config = match payload.config {
-            Some(config) => config,
-            None => return Err(Status::invalid_argument("Missing configuration")),
-        };
-
-        let model = config.try_into()?;
-        let result = database.insert_config(&model).await?;
-        Ok(Response::new(result.try_into()?))
+        request: Request<ganymede::v2::CreateDeviceRequest>,
+    ) -> Result<Response<ganymede::v2::Device>, Status> {
+        return self.create_device_internal(request).await;
     }
 
-    async fn update_config(
+    async fn update_device(
         &self,
-        request: Request<ganymede::v2::UpdateConfigRequest>,
-    ) -> Result<Response<ganymede::v2::Config>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
-
-        let payload = request.into_inner();
-        let config = match payload.config {
-            Some(config) => config,
-            None => return Err(Status::invalid_argument("Missing configuration")),
-        };
-
-        let model = config.try_into()?;
-        let result = database.update_config(&model).await?;
-        Ok(Response::new(result.try_into()?))
+        request: Request<ganymede::v2::UpdateDeviceRequest>,
+    ) -> Result<Response<ganymede::v2::Device>, Status> {
+        return self.update_device_internal(request).await;
     }
 
-    async fn get_config(
-        &self,
-        request: Request<ganymede::v2::GetConfigRequest>,
-    ) -> Result<Response<ganymede::v2::Config>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
-
-        let payload = request.into_inner();
-        let config_id = match uuid::Uuid::try_parse(&payload.config_uid) {
-            Ok(config_id) => config_id,
-            Err(_) => Err(ConfigError::InvalidConfigId)?,
-        };
-
-        let result = database.fetch_one_config(&config_id).await?;
-        Ok(Response::new(result.try_into()?))
+    async fn delete_device(&self, request: Request<ganymede::v2::DeleteDeviceRequest>) -> Result<Response<()>, Status> {
+        return self.delete_device_internal(request).await;
     }
 
-    async fn list_config(
+    async fn poll_device(
         &self,
-        request: Request<ganymede::v2::ListConfigRequest>,
-    ) -> Result<Response<ganymede::v2::ListConfigResponse>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
-
-        let payload = request.into_inner();
-        let name_filter = if payload.name_filter.is_empty() {
-            None
-        } else {
-            Some(payload.name_filter)
-        };
-
-        let results = database.fetch_many_config(name_filter).await?;
-        Ok(Response::new(ganymede::v2::ListConfigResponse {
-            configs: results
-                .into_iter()
-                .map(|result| result.try_into())
-                .collect::<Result<Vec<ganymede::v2::Config>, ConfigError>>()?,
-        }))
-    }
-
-    async fn delete_config(
-        &self,
-        request: Request<ganymede::v2::DeleteConfigRequest>,
-    ) -> Result<Response<()>, Status> {
-        let domain_id = authenticate(&request)?;
-        let database = DomainDatabase::new(&self.dbpool, domain_id);
-
-        let payload = request.into_inner();
-        let config_id = match uuid::Uuid::try_parse(&payload.config_uid) {
-            Ok(config_id) => config_id,
-            Err(_) => Err(ConfigError::InvalidConfigId)?,
-        };
-
-        database.delete_config(&config_id).await?;
-        Ok(Response::new(()))
+        _request: Request<ganymede::v2::PollDeviceRequest>,
+    ) -> Result<Response<PollDeviceResponse>, Status> {
+        return Err(tonic::Status::unimplemented("unimplemented"));
     }
 }

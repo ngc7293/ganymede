@@ -8,7 +8,7 @@ pub struct DeviceModel {
     pub display_name: String,
     #[sqlx(try_from = "String")]
     pub mac: mac::Mac,
-    pub config_id: uuid::Uuid,
+    pub device_type_id: uuid::Uuid,
     pub description: String,
     pub timezone: String,
 }

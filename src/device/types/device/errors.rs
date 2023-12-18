@@ -3,9 +3,9 @@ pub enum DeviceError {
     InvalidMac,
     InvalidTimezone,
     InvalidDeviceId,
-    InvalidConfigId,
+    InvalidDeviceTypeId,
     NoSuchDevice,
-    NoSuchConfig,
+    NoSuchDeviceType,
     MacConflict,
     DatabaseError(String),
 }
@@ -13,19 +13,17 @@ pub enum DeviceError {
 impl From<DeviceError> for tonic::Status {
     fn from(value: DeviceError) -> Self {
         match value {
-            DeviceError::InvalidConfigId => tonic::Status::invalid_argument("invalid config id"),
+            DeviceError::InvalidDeviceTypeId => tonic::Status::invalid_argument("invalid device type id"),
             DeviceError::InvalidDeviceId => tonic::Status::invalid_argument("invalid device id"),
             DeviceError::InvalidTimezone => tonic::Status::invalid_argument("invalid timezone"),
             DeviceError::InvalidMac => tonic::Status::invalid_argument("invalid mac address"),
             DeviceError::NoSuchDevice => tonic::Status::not_found("no such device"),
-            DeviceError::NoSuchConfig => tonic::Status::not_found("no such config"),
-            DeviceError::MacConflict => {
-                tonic::Status::invalid_argument("mac address already in use")
-            }
+            DeviceError::NoSuchDeviceType => tonic::Status::not_found("no such device type"),
+            DeviceError::MacConflict => tonic::Status::invalid_argument("mac address already in use"),
             DeviceError::DatabaseError(err) => {
                 log::error!("{err}");
                 tonic::Status::internal("internal error")
-            },
+            }
         }
     }
 }

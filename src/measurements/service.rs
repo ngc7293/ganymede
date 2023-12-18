@@ -2,16 +2,14 @@ use std::result::Result;
 
 use tonic::{Request, Response, Status};
 
-
 use crate::auth::authenticate;
 use crate::ganymede;
 
-pub struct MeasurementsService {
-}
+pub struct MeasurementsService {}
 
 impl MeasurementsService {
     pub fn new() -> Self {
-        MeasurementsService { }
+        MeasurementsService {}
     }
 }
 
@@ -19,7 +17,7 @@ impl MeasurementsService {
 impl ganymede::v2::measurements_service_server::MeasurementsService for MeasurementsService {
     async fn get_measurements(
         &self,
-        request: Request<ganymede::v2::GetMeasurementsRequest>
+        request: Request<ganymede::v2::GetMeasurementsRequest>,
     ) -> Result<Response<ganymede::v2::GetMeasurementsResponse>, Status> {
         authenticate(&request)?;
 
@@ -30,7 +28,7 @@ impl ganymede::v2::measurements_service_server::MeasurementsService for Measurem
 
     async fn push_measurements(
         &self,
-        request: Request<ganymede::v2::PushMeasurementsRequest>
+        request: Request<ganymede::v2::PushMeasurementsRequest>,
     ) -> Result<Response<()>, Status> {
         authenticate(&request)?;
 
