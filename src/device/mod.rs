@@ -1,3 +1,3 @@
-mod database;
+pub mod database;
 pub mod service;
-mod types;
+pub mod types;

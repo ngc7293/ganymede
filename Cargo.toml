@@ -3,6 +3,7 @@ name = "ganymede"
 version = "2.0.0"
 authors = ["David Bourgault <contact@davidbourgault.ca>"]
 edition = "2021"
+default-run = "ganymede"
 
 [dependencies]
 async-trait = "0.1.68"

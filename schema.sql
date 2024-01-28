@@ -48,9 +48,9 @@ CREATE TABLE IF NOT EXISTS device_types (
 );
 
 CREATE TABLE IF NOT EXISTS device_features (
-    id             UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
-    domain_id      UUID             NOT NULL,
-    display_name   VARCHAR(255)     NOT NULL,
+    id             UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
+    domain_id      UUID           NOT NULL,
+    display_name   VARCHAR(255)   NOT NULL,
     device_type_id UUID           NOT NULL,
     feature_id     UUID           NOT NULL,
     component_type component_type NOT NULL,
@@ -60,7 +60,6 @@ CREATE TABLE IF NOT EXISTS device_features (
     FOREIGN KEY (device_type_id) REFERENCES device_types(id) ON DELETE CASCADE,
     FOREIGN KEY (feature_id)     REFERENCES features(id)     ON DELETE RESTRICT
 );
-
 
 CREATE TABLE IF NOT EXISTS devices (
     id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),

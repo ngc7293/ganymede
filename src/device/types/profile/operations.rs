@@ -1,75 +1,72 @@
 use crate::{device::database::DomainDatabase, error::Error};
 
-use super::model::FeatureModel;
+use super::model::ProfileModel;
 
 impl<'a> DomainDatabase<'a> {
-    pub async fn fetch_all_features(&self) -> Result<Vec<FeatureModel>, Error> {
-        let features = match sqlx::query_as::<_, FeatureModel>(
-            "SELECT id, display_name, feature_type FROM features WHERE domain_id = $1",
-        )
-        .bind(self.domain_id())
-        .fetch_all(self.pool())
-        .await
-        {
-            Ok(feature) => feature,
-            Err(err) => match err {
-                _ => return Err(Error::DatabaseError(err.to_string())),
-            },
-        };
+    pub async fn fetch_all_profiles(&self) -> Result<Vec<ProfileModel>, Error> {
+        let profiles =
+            match sqlx::query_as::<_, ProfileModel>("SELECT id, display_name FROM profiles WHERE domain_id = $1")
+                .bind(self.domain_id())
+                .fetch_all(self.pool())
+                .await
+            {
+                Ok(profile) => profile,
+                Err(err) => match err {
+                    _ => return Err(Error::DatabaseError(err.to_string())),
+                },
+            };
 
-        Ok(features)
+        Ok(profiles)
     }
 
-    pub async fn fetch_one_feature(&self, id: &uuid::Uuid) -> Result<FeatureModel, Error> {
-        let feature = match sqlx::query_as::<_, FeatureModel>(
-            "SELECT id, display_name, feature_type FROM features WHERE domain_id = $1 AND id = $2",
+    pub async fn fetch_one_profile(&self, id: &uuid::Uuid) -> Result<ProfileModel, Error> {
+        let profile = match sqlx::query_as::<_, ProfileModel>(
+            "SELECT id, display_name FROM profiles WHERE domain_id = $1 AND id = $2",
         )
         .bind(self.domain_id())
         .bind(id)
         .fetch_one(self.pool())
         .await
         {
-            Ok(feature) => feature,
+            Ok(profile) => profile,
             Err(err) => match err {
                 sqlx::Error::RowNotFound => return Err(Error::NoSuchResourceError("Feature", id.clone())),
                 _ => return Err(Error::DatabaseError(err.to_string())),
             },
         };
 
-        Ok(feature)
+        Ok(profile)
     }
 
-    pub async fn insert_feature(&self, feature: FeatureModel) -> Result<FeatureModel, Error> {
-        let (feature_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
-            "INSERT INTO features (domain_id, display_name, feature_type) VALUES ($1, $2, $3) RETURNING id",
+    pub async fn insert_profile(&self, profile: ProfileModel) -> Result<ProfileModel, Error> {
+        let (profile_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
+            "INSERT INTO profiles (domain_id, display_name) VALUES ($1, $2) RETURNING id",
         )
         .bind(self.domain_id())
-        .bind(feature.display_name())
-        .bind(feature.feature_type())
+        .bind(profile.display_name())
         .fetch_one(self.pool())
         .await
         .map_err(|err| Error::DatabaseError(err.to_string()))?;
 
-        self.fetch_one_feature(&feature_id).await
+        self.fetch_one_profile(&profile_id).await
     }
 
-    pub async fn update_feature(&self, feature: FeatureModel) -> Result<FeatureModel, Error> {
-        let (feature_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
-            "UPDATE features SET display_name = $3, feature_type = $4 WHERE domain_id = $1 AND id = $2 RETURNING id",
+    pub async fn update_profile(&self, profile: ProfileModel) -> Result<ProfileModel, Error> {
+        let (profile_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
+            "UPDATE profiles SET display_name = $3 WHERE domain_id = $1 AND id = $2 RETURNING id",
         )
         .bind(self.domain_id())
-        .bind(feature.id())
-        .bind(feature.display_name())
-        .bind(feature.feature_type())
+        .bind(profile.id())
+        .bind(profile.display_name())
         .fetch_one(self.pool())
         .await
         .map_err(|err| Error::DatabaseError(err.to_string()))?;
 
-        self.fetch_one_feature(&feature_id).await
+        self.fetch_one_profile(&profile_id).await
     }
 
-    pub async fn delete_feature(&self, id: &uuid::Uuid) -> Result<(), Error> {
-        let result = sqlx::query("DELETE FROM features WHERE domain_id = $1 AND id = $2")
+    pub async fn delete_profile(&self, id: &uuid::Uuid) -> Result<(), Error> {
+        let result = sqlx::query("DELETE FROM profiles WHERE domain_id = $1 AND id = $2")
             .bind(self.domain_id())
             .bind(id)
             .execute(self.pool())
@@ -88,8 +85,6 @@ impl<'a> DomainDatabase<'a> {
 mod tests {
     use super::*;
 
-    use crate::device::types::feature::model::FeatureType;
-
     type TestResult = Result<(), Box<dyn std::error::Error>>;
 
     async fn insert_test_domain(pool: &sqlx::PgPool) -> sqlx::Result<()> {
@@ -100,12 +95,12 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn test_insert_feature(pool: sqlx::PgPool) -> TestResult {
+    async fn test_insert_profile(pool: sqlx::PgPool) -> TestResult {
         let database = DomainDatabase::new(&pool, uuid::Uuid::nil());
 
         insert_test_domain(&pool).await?;
-        let feature = FeatureModel::new(uuid::Uuid::nil(), "A feature".into(), FeatureType::Light);
-        let result = database.insert_feature(feature).await.unwrap();
+        let profile = ProfileModel::new(uuid::Uuid::nil(), "A profile".into());
+        let result = database.insert_profile(profile).await.unwrap();
 
         assert_ne!(result.id(), uuid::Uuid::nil());
         Ok(())

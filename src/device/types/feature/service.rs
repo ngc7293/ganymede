@@ -46,7 +46,7 @@ impl DeviceService {
 
         let feature = match payload.feature {
             Some(feature) => ganymede::v2::Feature {
-                name: format!("features/{}", uuid::Uuid::nil()),
+                name: FeatureName::nil().into(),
                 ..feature
             },
             None => return Err(Status::invalid_argument("missing feature")),

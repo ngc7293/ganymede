@@ -40,11 +40,11 @@ impl TryFrom<ganymede::v2::Feature> for FeatureModel {
     type Error = crate::error::Error;
 
     fn try_from(value: ganymede::v2::Feature) -> Result<Self, Self::Error> {
-        let feature = Self {
-            id: FeatureName::try_from(&value.name)?.into(),
-            display_name: value.display_name,
-            feature_type: value.feature_type.try_into()?,
-        };
+        let feature = FeatureModel::new(
+            FeatureName::try_from(&value.name)?.into(),
+            value.display_name,
+            value.feature_type.try_into()?,
+        );
 
         Ok(feature)
     }
@@ -53,9 +53,9 @@ impl TryFrom<ganymede::v2::Feature> for FeatureModel {
 impl From<FeatureModel> for ganymede::v2::Feature {
     fn from(value: FeatureModel) -> Self {
         return Self {
-            name: FeatureName::new(value.id).into(),
-            display_name: value.display_name,
-            feature_type: ganymede::v2::FeatureType::from(value.feature_type).into(),
+            name: FeatureName::new(value.id()).into(),
+            display_name: value.display_name(),
+            feature_type: ganymede::v2::FeatureType::from(value.feature_type()).into(),
         };
     }
 }
@@ -72,11 +72,11 @@ mod test {
             feature_type: 1,
         };
 
-        let expected = FeatureModel {
-            id: uuid::uuid!("94743ea0-7e27-46eb-8735-795a1b635818"),
-            display_name: "A feature".into(),
-            feature_type: FeatureType::Light,
-        };
+        let expected = FeatureModel::new(
+            uuid::uuid!("94743ea0-7e27-46eb-8735-795a1b635818"),
+            "A feature".into(),
+            FeatureType::Light,
+        );
 
         assert_eq!(FeatureModel::try_from(feature).unwrap(), expected);
     }
@@ -122,11 +122,11 @@ mod test {
 
     #[test]
     fn test_serialize_model() {
-        let feature = FeatureModel {
-            id: uuid::uuid!("94743ea0-7e27-46eb-8735-795a1b635818"),
-            display_name: "some string\nyeah".into(),
-            feature_type: FeatureType::Light,
-        };
+        let feature = FeatureModel::new(
+            uuid::uuid!("94743ea0-7e27-46eb-8735-795a1b635818"),
+            "some string\nyeah".into(),
+            FeatureType::Light,
+        );
 
         assert_eq!(
             ganymede::v2::Feature::from(feature),

@@ -1,75 +1,82 @@
-use crate::{device::database::DomainDatabase, error::Error};
+use uuid::Uuid;
 
-use super::model::FeatureModel;
+use crate::{device::{database::DomainDatabase, types::feature::model::FeatureType}, error::Error};
+
+use super::model::FeatureProfileModel;
 
 impl<'a> DomainDatabase<'a> {
-    pub async fn fetch_all_features(&self) -> Result<Vec<FeatureModel>, Error> {
-        let features = match sqlx::query_as::<_, FeatureModel>(
-            "SELECT id, display_name, feature_type FROM features WHERE domain_id = $1",
-        )
-        .bind(self.domain_id())
-        .fetch_all(self.pool())
-        .await
-        {
-            Ok(feature) => feature,
-            Err(err) => match err {
-                _ => return Err(Error::DatabaseError(err.to_string())),
-            },
-        };
+    pub async fn fetch_all_feature_profiles(&self, id: &uuid::Uuid) -> Result<Vec<FeatureProfileModel>, Error> {
+        let feature_profiles =
+            match sqlx::query_as::<_, (Uuid, String, Uuid, Uuid, FeatureType, String)>("SELECT feature_profiles.id, feature_profiles.display_name, profile_id, feature_id, feature_type, config FROM feature_profiles INNER JOIN features ON features.id = feature_profiles.feature_id WHERE features.domain_id = $1 AND feature_profiles.domain_id = $1")
+                .bind(self.domain_id())
+                .fetch_all(self.pool())
+                .await
+            {
+                Ok(rows) => rows.into_iter().map(|(id, display_name, profile_id, feature_id, feature_type, config)| -> Result<FeatureProfileModel, Error> {
+                    FeatureProfileModel::try_new(id, display_name, profile_id, feature_id, feature_type, serde_json::from_str(&config).unwrap())
+                }).collect::<Result<Vec<FeatureProfileModel>, Error>>()?,
+                Err(err) => match err {
+                    _ => return Err(Error::DatabaseError(err.to_string())),
+                },
+            };
 
-        Ok(features)
+        Ok(feature_profiles)
     }
 
-    pub async fn fetch_one_feature(&self, id: &uuid::Uuid) -> Result<FeatureModel, Error> {
-        let feature = match sqlx::query_as::<_, FeatureModel>(
-            "SELECT id, display_name, feature_type FROM features WHERE domain_id = $1 AND id = $2",
+    pub async fn fetch_one_feature_profile(&self, id: &uuid::Uuid) -> Result<FeatureProfileModel, Error> {
+        let feature_profile = match sqlx::query_as::<_, (Uuid, String, Uuid, Uuid, FeatureType, String)>(
+            "SELECT feature_profiles.id, feature_profiles.display_name, profile_id, feature_id, feature_type, config FROM feature_profiles INNER JOIN features ON features.id = feature_profiles.feature_id WHERE feature.domain_id = $1 AND feature_profiles.domain_id = $1 AND feature_profiles.id = $2",
         )
         .bind(self.domain_id())
         .bind(id)
         .fetch_one(self.pool())
         .await
         {
-            Ok(feature) => feature,
+            Ok((id, display_name, profile_id, feature_id, feature_type, config)) => FeatureProfileModel::try_new(id, display_name, profile_id, feature_id, feature_type, serde_json::from_str(&config).unwrap())?,
             Err(err) => match err {
-                sqlx::Error::RowNotFound => return Err(Error::NoSuchResourceError("Feature", id.clone())),
+                sqlx::Error::RowNotFound => return Err(Error::NoSuchResourceError("FeatureProfile", id.clone())),
                 _ => return Err(Error::DatabaseError(err.to_string())),
             },
         };
 
-        Ok(feature)
+        Ok(feature_profile)
     }
 
-    pub async fn insert_feature(&self, feature: FeatureModel) -> Result<FeatureModel, Error> {
-        let (feature_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
-            "INSERT INTO features (domain_id, display_name, feature_type) VALUES ($1, $2, $3) RETURNING id",
+    pub async fn insert_feature_profile(&self, feature_profile: FeatureProfileModel) -> Result<FeatureProfileModel, Error> {
+        let (feature_profile_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
+            "INSERT INTO feature_profiles (domain_id, display_name, profile_id, feature_id, config) VALUES ($1, $2, $3, $4, $5) RETURNING id",
         )
         .bind(self.domain_id())
-        .bind(feature.display_name())
-        .bind(feature.feature_type())
+        .bind(feature_profile.display_name())
+        .bind(feature_profile.profile_id())
+        .bind(feature_profile.feature_id())
+        .bind(feature_profile.config().as_json()?)
         .fetch_one(self.pool())
         .await
         .map_err(|err| Error::DatabaseError(err.to_string()))?;
 
-        self.fetch_one_feature(&feature_id).await
+        self.fetch_one_feature_profile(&feature_profile_id).await
     }
 
-    pub async fn update_feature(&self, feature: FeatureModel) -> Result<FeatureModel, Error> {
-        let (feature_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
-            "UPDATE features SET display_name = $3, feature_type = $4 WHERE domain_id = $1 AND id = $2 RETURNING id",
+    pub async fn update_feature_profile(&self, feature_profile: FeatureProfileModel) -> Result<FeatureProfileModel, Error> {
+        let (feature_profile_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
+            "UPDATE profiles SET display_name = $3, profile_id = $4, feature_id = $5, config = $6 WHERE domain_id = $1 AND id = $2 RETURNING id",
         )
         .bind(self.domain_id())
-        .bind(feature.id())
-        .bind(feature.display_name())
-        .bind(feature.feature_type())
+        .bind(feature_profile.id())
+        .bind(feature_profile.display_name())
+        .bind(feature_profile.profile_id())
+        .bind(feature_profile.feature_id())
+        .bind(feature_profile.config().as_json()?)
         .fetch_one(self.pool())
         .await
         .map_err(|err| Error::DatabaseError(err.to_string()))?;
 
-        self.fetch_one_feature(&feature_id).await
+        self.fetch_one_feature_profile(&feature_profile_id).await
     }
 
-    pub async fn delete_feature(&self, id: &uuid::Uuid) -> Result<(), Error> {
-        let result = sqlx::query("DELETE FROM features WHERE domain_id = $1 AND id = $2")
+    pub async fn delete_feature_profile(&self, id: &uuid::Uuid) -> Result<(), Error> {
+        let result = sqlx::query("DELETE FROM feature_profiles WHERE domain_id = $1 AND id = $2")
             .bind(self.domain_id())
             .bind(id)
             .execute(self.pool())
@@ -77,40 +84,38 @@ impl<'a> DomainDatabase<'a> {
             .map_err(|err| Error::DatabaseError(err.to_string()))?;
 
         if result.rows_affected() == 0 {
-            return Err(Error::NoSuchResourceError("Feature", id.clone()));
+            return Err(Error::NoSuchResourceError("FeatureProfile", id.clone()));
         }
 
         Ok(())
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    use crate::device::types::feature::model::FeatureType;
+//     type TestResult = Result<(), Box<dyn std::error::Error>>;
 
-    type TestResult = Result<(), Box<dyn std::error::Error>>;
+//     async fn insert_test_domain(pool: &sqlx::PgPool) -> sqlx::Result<()> {
+//         sqlx::query("INSERT INTO domains VALUES ('00000000-0000-0000-0000-000000000000', 'Test Domain')")
+//             .execute(pool)
+//             .await?;
+//         Ok(())
+//     }
 
-    async fn insert_test_domain(pool: &sqlx::PgPool) -> sqlx::Result<()> {
-        sqlx::query("INSERT INTO domains VALUES ('00000000-0000-0000-0000-000000000000', 'Test Domain')")
-            .execute(pool)
-            .await?;
-        Ok(())
-    }
+//     #[sqlx::test]
+//     async fn test_insert_feature_profile(pool: sqlx::PgPool) -> TestResult {
+//         let database = DomainDatabase::new(&pool, uuid::Uuid::nil());
 
-    #[sqlx::test]
-    async fn test_insert_feature(pool: sqlx::PgPool) -> TestResult {
-        let database = DomainDatabase::new(&pool, uuid::Uuid::nil());
+//         insert_test_domain(&pool).await?;
+//         let profile = FeatureProfileModel::new(uuid::Uuid::nil(), "A profile".into());
+//         let result = database.insert_feature_profile(profile).await.unwrap();
 
-        insert_test_domain(&pool).await?;
-        let feature = FeatureModel::new(uuid::Uuid::nil(), "A feature".into(), FeatureType::Light);
-        let result = database.insert_feature(feature).await.unwrap();
-
-        assert_ne!(result.id(), uuid::Uuid::nil());
-        Ok(())
-    }
-}
+//         assert_ne!(result.id(), uuid::Uuid::nil());
+//         Ok(())
+//     }
+// }
 // //     fn create_test_config() -> ConfigModel {
 // //         ConfigModel {
 // //             config_id: uuid::Uuid::nil(),

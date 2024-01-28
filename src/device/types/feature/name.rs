@@ -7,6 +7,10 @@ impl FeatureName {
         FeatureName { 0: id }
     }
 
+    pub fn nil() -> Self {
+        FeatureName { 0: uuid::Uuid::nil() }
+    }
+
     pub fn try_from(value: &str) -> Result<Self, Error> {
         Ok(FeatureName {
             0: ResourceName::try_from(value, "features/{}")?.get("features")?,
