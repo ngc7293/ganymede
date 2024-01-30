@@ -4,7 +4,7 @@ use super::model::ProfileModel;
 
 impl<'a> DomainDatabase<'a> {
     pub async fn fetch_all_profiles(&self) -> Result<Vec<ProfileModel>, Error> {
-        let profiles =
+        let mut profiles =
             match sqlx::query_as::<_, ProfileModel>("SELECT id, display_name FROM profiles WHERE domain_id = $1")
                 .bind(self.domain_id())
                 .fetch_all(self.pool())
@@ -15,12 +15,16 @@ impl<'a> DomainDatabase<'a> {
                     _ => return Err(Error::DatabaseError(err.to_string())),
                 },
             };
+        
+        for profile in profiles.iter_mut() {
+            profile.set_feature_profiles(self.fetch_all_feature_profiles(&profile.id()).await?);
+        }
 
         Ok(profiles)
     }
 
     pub async fn fetch_one_profile(&self, id: &uuid::Uuid) -> Result<ProfileModel, Error> {
-        let profile = match sqlx::query_as::<_, ProfileModel>(
+        let mut profile = match sqlx::query_as::<_, ProfileModel>(
             "SELECT id, display_name FROM profiles WHERE domain_id = $1 AND id = $2",
         )
         .bind(self.domain_id())
@@ -35,6 +39,9 @@ impl<'a> DomainDatabase<'a> {
             },
         };
 
+        let feature_profiles = self.fetch_all_feature_profiles(id).await?;
+        profile.set_feature_profiles(feature_profiles);
+
         Ok(profile)
     }
 
@@ -47,6 +54,11 @@ impl<'a> DomainDatabase<'a> {
         .fetch_one(self.pool())
         .await
         .map_err(|err| Error::DatabaseError(err.to_string()))?;
+
+        for fp in profile.feature_profiles().iter_mut() {
+            fp.set_profile_id(profile_id);
+            self.insert_feature_profile(fp.clone()).await?;
+        }
 
         self.fetch_one_profile(&profile_id).await
     }
@@ -77,6 +89,7 @@ impl<'a> DomainDatabase<'a> {
             return Err(Error::NoSuchResourceError("Feature", id.clone()));
         }
 
+        // Related FeatureProfiles are deleted by ON DELETE CASCADE relationship
         Ok(())
     }
 }
@@ -99,7 +112,7 @@ mod tests {
         let database = DomainDatabase::new(&pool, uuid::Uuid::nil());
 
         insert_test_domain(&pool).await?;
-        let profile = ProfileModel::new(uuid::Uuid::nil(), "A profile".into());
+        let profile = ProfileModel::new(uuid::Uuid::nil(), "A profile".into(), Vec::new());
         let result = database.insert_profile(profile).await.unwrap();
 
         assert_ne!(result.id(), uuid::Uuid::nil());

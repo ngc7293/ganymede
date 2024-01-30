@@ -41,6 +41,6 @@ impl From<FeatureProfileName> for String {
 
 impl From<FeatureProfileName> for (uuid::Uuid, uuid::Uuid) {
     fn from(value: FeatureProfileName) -> Self {
-        value.into()
+        (value.0, value.1)
     }
 }

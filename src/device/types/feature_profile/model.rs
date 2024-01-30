@@ -71,6 +71,10 @@ impl FeatureProfileModel {
         self.profile_id
     }
 
+    pub fn set_profile_id(&mut self, profile_id: uuid::Uuid) {
+        self.profile_id = profile_id
+    }
+
     pub fn feature_id(&self) -> uuid::Uuid {
         self.feature_id
     }

@@ -18,11 +18,13 @@ impl ResourceName {
         let mut last_key: Option<&str> = None;
         let iter = std::iter::zip(name.split("/"), format.split("/"));
 
+        
         for tokens in iter.into_iter() {
             if tokens.1 == "{}" {
                 if let Ok(binary) = base64.decode(tokens.0) {
                     if let Ok(uuid) = uuid::Uuid::try_from(binary) {
                         if let Some(key) = last_key.take() {
+                            log::info!("{}", key);
                             results.push((String::from(key), uuid));
                             continue;
                         }

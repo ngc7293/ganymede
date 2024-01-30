@@ -5,10 +5,11 @@ use crate::{device::{database::DomainDatabase, types::feature::model::FeatureTyp
 use super::model::FeatureProfileModel;
 
 impl<'a> DomainDatabase<'a> {
-    pub async fn fetch_all_feature_profiles(&self, id: &uuid::Uuid) -> Result<Vec<FeatureProfileModel>, Error> {
+    pub async fn fetch_all_feature_profiles(&self, profile_id: &uuid::Uuid) -> Result<Vec<FeatureProfileModel>, Error> {
         let feature_profiles =
-            match sqlx::query_as::<_, (Uuid, String, Uuid, Uuid, FeatureType, String)>("SELECT feature_profiles.id, feature_profiles.display_name, profile_id, feature_id, feature_type, config FROM feature_profiles INNER JOIN features ON features.id = feature_profiles.feature_id WHERE features.domain_id = $1 AND feature_profiles.domain_id = $1")
+            match sqlx::query_as::<_, (Uuid, String, Uuid, Uuid, FeatureType, String)>("SELECT feature_profiles.id, feature_profiles.display_name, feature_profiles.profile_id, feature_profiles.feature_id, features.feature_type, feature_profiles.config::text FROM feature_profiles INNER JOIN features ON features.id = feature_profiles.feature_id WHERE features.domain_id = $1 AND feature_profiles.domain_id = $1 AND feature_profiles.profile_id = $2")
                 .bind(self.domain_id())
+                .bind(profile_id)
                 .fetch_all(self.pool())
                 .await
             {
@@ -23,11 +24,12 @@ impl<'a> DomainDatabase<'a> {
         Ok(feature_profiles)
     }
 
-    pub async fn fetch_one_feature_profile(&self, id: &uuid::Uuid) -> Result<FeatureProfileModel, Error> {
+    pub async fn fetch_one_feature_profile(&self, profile_id: &uuid::Uuid, id: &uuid::Uuid) -> Result<FeatureProfileModel, Error> {
         let feature_profile = match sqlx::query_as::<_, (Uuid, String, Uuid, Uuid, FeatureType, String)>(
-            "SELECT feature_profiles.id, feature_profiles.display_name, profile_id, feature_id, feature_type, config FROM feature_profiles INNER JOIN features ON features.id = feature_profiles.feature_id WHERE feature.domain_id = $1 AND feature_profiles.domain_id = $1 AND feature_profiles.id = $2",
+            "SELECT feature_profiles.id, feature_profiles.display_name, profile_id, feature_id, feature_type, config::text FROM feature_profiles INNER JOIN features ON features.id = feature_profiles.feature_id WHERE features.domain_id = $1 AND feature_profiles.domain_id = $1 AND feature_profiles.profile_id = $2 AND feature_profiles.id = $3",
         )
         .bind(self.domain_id())
+        .bind(profile_id)
         .bind(id)
         .fetch_one(self.pool())
         .await
@@ -44,7 +46,7 @@ impl<'a> DomainDatabase<'a> {
 
     pub async fn insert_feature_profile(&self, feature_profile: FeatureProfileModel) -> Result<FeatureProfileModel, Error> {
         let (feature_profile_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
-            "INSERT INTO feature_profiles (domain_id, display_name, profile_id, feature_id, config) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+            "INSERT INTO feature_profiles (domain_id, display_name, profile_id, feature_id, config) VALUES ($1, $2, $3, $4, $5::JSONB) RETURNING id",
         )
         .bind(self.domain_id())
         .bind(feature_profile.display_name())
@@ -55,15 +57,17 @@ impl<'a> DomainDatabase<'a> {
         .await
         .map_err(|err| Error::DatabaseError(err.to_string()))?;
 
-        self.fetch_one_feature_profile(&feature_profile_id).await
+        self.fetch_one_feature_profile(&feature_profile.profile_id(), &feature_profile_id).await
     }
 
     pub async fn update_feature_profile(&self, feature_profile: FeatureProfileModel) -> Result<FeatureProfileModel, Error> {
         let (feature_profile_id,) = sqlx::query_as::<_, (uuid::Uuid,)>(
-            "UPDATE profiles SET display_name = $3, profile_id = $4, feature_id = $5, config = $6 WHERE domain_id = $1 AND id = $2 RETURNING id",
+            "UPDATE profiles SET display_name = $4, profile_id = $5, feature_id = $6, config = $7 WHERE domain_id = $1 AND profile_id = $2 AND id = $3 RETURNING id",
         )
         .bind(self.domain_id())
+        .bind(feature_profile.profile_id())
         .bind(feature_profile.id())
+        .bind(feature_profile.profile_id())
         .bind(feature_profile.display_name())
         .bind(feature_profile.profile_id())
         .bind(feature_profile.feature_id())
@@ -72,12 +76,13 @@ impl<'a> DomainDatabase<'a> {
         .await
         .map_err(|err| Error::DatabaseError(err.to_string()))?;
 
-        self.fetch_one_feature_profile(&feature_profile_id).await
+        self.fetch_one_feature_profile(&feature_profile.profile_id(), &feature_profile_id).await
     }
 
-    pub async fn delete_feature_profile(&self, id: &uuid::Uuid) -> Result<(), Error> {
-        let result = sqlx::query("DELETE FROM feature_profiles WHERE domain_id = $1 AND id = $2")
+    pub async fn delete_feature_profile(&self, profile_id: &uuid::Uuid, id: &uuid::Uuid) -> Result<(), Error> {
+        let result = sqlx::query("DELETE FROM feature_profiles WHERE domain_id = $1 AND  AND profile_id = $2 id = $3")
             .bind(self.domain_id())
+            .bind(profile_id)
             .bind(id)
             .execute(self.pool())
             .await
