@@ -1,5 +1,5 @@
-mod model;
-mod name;
-mod operations;
-mod protobuf;
-mod service;
+pub mod model;
+pub mod name;
+pub mod operations;
+pub mod protobuf;
+pub mod service;

@@ -19,6 +19,7 @@ impl TryFrom<ganymede::v2::FeatureProfile> for FeatureProfileModel {
 
         let feature_profile = FeatureProfileModel::try_new(
             feature_profile_id,
+            uuid::Uuid::nil(),
             value.display_name,
             profile_id,
             feature_id,

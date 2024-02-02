@@ -104,7 +104,7 @@ mod tests {
         let database = DomainDatabase::new(&pool, uuid::Uuid::nil());
 
         insert_test_domain(&pool).await?;
-        let feature = FeatureModel::new(uuid::Uuid::nil(), "A feature".into(), FeatureType::Light);
+        let feature = FeatureModel::new(uuid::Uuid::nil(), uuid::Uuid::nil(), "A feature".into(), FeatureType::Light);
         let result = database.insert_feature(feature).await.unwrap();
 
         assert_ne!(result.id(), uuid::Uuid::nil());

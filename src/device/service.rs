@@ -2,7 +2,9 @@ use std::result::Result;
 
 use tonic::{Request, Response, Status};
 
-use crate::ganymede::{self, v2::PollDeviceResponse};
+use crate::{auth::authenticate, ganymede::{self, v2::PollDeviceResponse}};
+
+use super::types::{feature::model::FeatureModel, model::DomainDatabaseModel, profile::model::ProfileModel, protobuf::{ToProtobuf, TryFromProtobuf}};
 
 pub struct DeviceService {
     dbpool: sqlx::Pool<sqlx::Postgres>,
@@ -18,13 +20,26 @@ impl DeviceService {
     }
 }
 
+async fn generic_list<Model>(pool: &sqlx::Pool<sqlx::Postgres>, domain_id: uuid::Uuid) -> Result<Vec<Model::Output>, Status>
+where
+    Model: DomainDatabaseModel + TryFromProtobuf + ToProtobuf
+{
+    let mut tx = pool.begin().await.unwrap();
+
+    let results = Model::fetch_all(&mut tx, domain_id).await?;
+    Ok(results.into_iter().map(|r| r.to_protobuf(true)).collect())
+}
+
+
 #[tonic::async_trait]
 impl ganymede::v2::device_service_server::DeviceService for DeviceService {
     async fn list_feature(
         &self,
         request: Request<ganymede::v2::ListFeatureRequest>,
     ) -> Result<Response<ganymede::v2::ListFeatureResponse>, Status> {
-        self.list_feature_inner(request).await
+        let results = generic_list::<FeatureModel>(self.pool(), authenticate(&request)?).await?;
+
+        Ok(Response::new(ganymede::v2::ListFeatureResponse { features: results }))
     }
 
     async fn get_feature(
@@ -59,7 +74,9 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::ListProfileRequest>,
     ) -> Result<Response<ganymede::v2::ListProfileResponse>, Status> {
-        self.list_profile_inner(request).await
+        let results = generic_list::<ProfileModel>(self.pool(), authenticate(&request)?).await?;
+
+        Ok(Response::new(ganymede::v2::ListProfileResponse { profiles: results }))
     }
 
     async fn get_profile(

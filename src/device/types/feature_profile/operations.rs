@@ -14,7 +14,7 @@ impl<'a> DomainDatabase<'a> {
                 .await
             {
                 Ok(rows) => rows.into_iter().map(|(id, display_name, profile_id, feature_id, feature_type, config)| -> Result<FeatureProfileModel, Error> {
-                    FeatureProfileModel::try_new(id, display_name, profile_id, feature_id, feature_type, serde_json::from_str(&config).unwrap())
+                    FeatureProfileModel::try_new(id, uuid::Uuid::nil(), display_name, profile_id, feature_id, feature_type, serde_json::from_str(&config).unwrap())
                 }).collect::<Result<Vec<FeatureProfileModel>, Error>>()?,
                 Err(err) => match err {
                     _ => return Err(Error::DatabaseError(err.to_string())),
@@ -34,7 +34,7 @@ impl<'a> DomainDatabase<'a> {
         .fetch_one(self.pool())
         .await
         {
-            Ok((id, display_name, profile_id, feature_id, feature_type, config)) => FeatureProfileModel::try_new(id, display_name, profile_id, feature_id, feature_type, serde_json::from_str(&config).unwrap())?,
+            Ok((id, display_name, profile_id, feature_id, feature_type, config)) => FeatureProfileModel::try_new(id, uuid::Uuid::nil(), display_name, profile_id, feature_id, feature_type, serde_json::from_str(&config).unwrap())?,
             Err(err) => match err {
                 sqlx::Error::RowNotFound => return Err(Error::NoSuchResourceError("FeatureProfile", id.clone())),
                 _ => return Err(Error::DatabaseError(err.to_string())),

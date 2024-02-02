@@ -112,7 +112,7 @@ mod tests {
         let database = DomainDatabase::new(&pool, uuid::Uuid::nil());
 
         insert_test_domain(&pool).await?;
-        let profile = ProfileModel::new(uuid::Uuid::nil(), "A profile".into(), Vec::new());
+        let profile = ProfileModel::new(uuid::Uuid::nil(), uuid::Uuid::nil(), "A profile".into(), Vec::new());
         let result = database.insert_profile(profile).await.unwrap();
 
         assert_ne!(result.id(), uuid::Uuid::nil());

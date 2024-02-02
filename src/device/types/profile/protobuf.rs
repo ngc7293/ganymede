@@ -9,6 +9,7 @@ impl TryFrom<ganymede::v2::Profile> for ProfileModel {
     fn try_from(value: ganymede::v2::Profile) -> Result<Self, Self::Error> {
         let feature = Self::new(
             ProfileName::try_from(&value.name)?.into(),
+            uuid::Uuid::nil(),
             value.display_name,
             value.feature_profiles.into_iter().map(
                 |fp| FeatureProfileModel::try_from(fp)
@@ -41,7 +42,7 @@ mod test {
             feature_profiles: Vec::new(),
         };
 
-        let expected = ProfileModel::new(uuid::uuid!("94743ea0-7e27-46eb-8735-795a1b635818"), "A profile".into(), Vec::new());
+        let expected = ProfileModel::new(uuid::uuid!("94743ea0-7e27-46eb-8735-795a1b635818"), uuid::Uuid::nil(), "A profile".into(), Vec::new());
 
         assert_eq!(ProfileModel::try_from(profile).unwrap(), expected);
     }
@@ -61,6 +62,7 @@ mod test {
     fn test_serialize_model() {
         let feature = ProfileModel::new(
             uuid::uuid!("94743ea0-7e27-46eb-8735-795a1b635818"),
+            uuid::Uuid::nil(),
             "some string\nyeah".into(),
             Vec::new(),
         );
