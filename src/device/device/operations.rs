@@ -3,11 +3,6 @@ use crate::types::mac::Mac;
 
 use super::{errors::DeviceError, model::DeviceModel};
 
-pub enum UniqueDeviceFilter {
-    DeviceId(uuid::Uuid),
-    DeviceMac(Mac),
-}
-
 pub enum DeviceFilter {
     NameFilter(String),
     ConfigId(uuid::Uuid),
@@ -15,12 +10,25 @@ pub enum DeviceFilter {
 }
 
 impl<'a> DomainDatabase<'a> {
-    pub async fn insert_device(&self, device: DeviceModel) -> Result<DeviceModel, DeviceError> {
-        if self
-            .fetch_one_device(UniqueDeviceFilter::DeviceMac(device.mac.clone()))
+    pub async fn fetch_device_id_for_mac(&self, mac: &Mac) -> Result<Option<uuid::Uuid>, DeviceError> {
+        let device_id = match sqlx::query_as::<_, (uuid::Uuid,)>("SELECT device_id FROM device WHERE domain_id = $1 AND mac = $2 LIMIT 1")
+            .bind(self.domain_id())
+            .bind(mac)
+            .fetch_one(self.pool())
             .await
-            != Err(DeviceError::NoSuchDevice)
         {
+            Ok(row) => Some(row.0),
+            Err(err) => match err {
+                sqlx::Error::RowNotFound => None,
+                _ => return Err(DeviceError::DatabaseError(err.to_string())),
+            }
+        };
+
+        Ok(device_id)
+    }
+
+    pub async fn insert_device(&self, device: DeviceModel) -> Result<DeviceModel, DeviceError> {
+        if let Some(_) = self.fetch_device_id_for_mac(&device.mac).await? {
             return Err(DeviceError::MacConflict);
         }
 
@@ -42,16 +50,13 @@ impl<'a> DomainDatabase<'a> {
             .await
             .map_err(|err| DeviceError::DatabaseError(err.to_string()))?;
 
-        self.fetch_one_device(UniqueDeviceFilter::DeviceId(device_id))
+        self.fetch_one_device(device_id)
             .await
     }
 
     pub async fn update_device(&self, device: DeviceModel) -> Result<DeviceModel, DeviceError> {
-        if let Ok(existing) = self
-            .fetch_one_device(UniqueDeviceFilter::DeviceMac(device.mac.clone()))
-            .await
-        {
-            if existing.device_id != device.device_id {
+        if let Some(existing_id) = self.fetch_device_id_for_mac(&device.mac).await? {
+            if existing_id != device.device_id {
                 return Err(DeviceError::MacConflict);
             }
         }
@@ -81,24 +86,17 @@ impl<'a> DomainDatabase<'a> {
             },
         };
 
-        self.fetch_one_device(UniqueDeviceFilter::DeviceId(device_id))
+        self.fetch_one_device(device_id)
             .await
     }
 
     pub async fn fetch_one_device(
         &self,
-        filter: UniqueDeviceFilter,
+        device_id: uuid::Uuid,
     ) -> Result<DeviceModel, DeviceError> {
-        let mut query = sqlx::QueryBuilder::new("SELECT device_id, domain_id, display_name, mac, config_id, description, timezone FROM device WHERE domain_id = ");
-        query.push_bind(self.domain_id()).push(" AND ");
-
-        match filter {
-            UniqueDeviceFilter::DeviceId(id) => query.push("device_id = ").push_bind(id),
-            UniqueDeviceFilter::DeviceMac(mac) => query.push("mac = ").push_bind(mac),
-        };
-
-        let device = match query
-            .build_query_as::<DeviceModel>()
+        let device = match sqlx::query_as::<_, DeviceModel>("SELECT device_id, domain_id, display_name, mac, config_id, description, timezone FROM device WHERE domain_id = $1 AND device_id = $2")
+            .bind(self.domain_id())
+            .bind(device_id)
             .fetch_one(self.pool())
             .await
         {

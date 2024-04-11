@@ -12,6 +12,8 @@ service DeviceService {
     rpc ListDevice(ListDeviceRequest) returns (ListDeviceResponse);
     rpc DeleteDevice(DeleteDeviceRequest) returns (google.protobuf.Empty);
 
+    rpc Poll(PollRequest) returns (PollResponse);
+
     rpc CreateConfig(CreateConfigRequest) returns (Config);
     rpc UpdateConfig(UpdateConfigRequest) returns (Config);
     rpc GetConfig(GetConfigRequest) returns (Config);
@@ -29,10 +31,7 @@ message UpdateDeviceRequest {
 }
 
 message GetDeviceRequest {
-    oneof filter {
-        string device_uid = 1;
-        string device_mac = 2;
-    }
+    string device_uid = 1;
 }
 
 message ListDeviceRequest {
@@ -49,6 +48,20 @@ message ListDeviceResponse {
 message DeleteDeviceRequest {
     string device_uid = 1;
     string reason = 2;
+}
+
+message PollRequest {
+    string device_mac = 1;
+}
+
+message PollResponse {
+    string uid = 1;
+    string display_name = 2;
+
+    // Output only. Current device's offset from UTC (including DST if applicable)
+    int64 timezone_offset_minutes = 10;
+
+    Config config = 20;
 }
 
 message CreateConfigRequest {
@@ -96,9 +109,6 @@ message Device {
 
     // Device timezone in IANA <zone>/<city> format
     string timezone = 12;
-
-    // Output only. Current device's offset from UTC (including DST if applicable)
-    int64 timezone_offset_minutes = 13;
 
     string config_uid = 20;
 }

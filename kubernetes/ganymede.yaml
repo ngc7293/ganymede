@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ganymede-config-cm
+  namespace: ganymede
   labels:
     app.kubernetes.io/name: device
     app.kubernetes.io/component: app
@@ -9,13 +10,12 @@ data:
   Ganymede.toml: |
     postgres_uri = "postgres://postgres:postgres@localhost:5432/ganymede"
     port = 3000
-
 ---
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ganymede
+  namespace: ganymede
   labels:
     app.kubernetes.io/name: ganymede
     app.kubernetes.io/component: app
@@ -32,31 +32,30 @@ spec:
         app.kubernetes.io/component: app
     spec:
       containers:
-      - name: ganymede
-        image: ghcr.io/ngc7293/ganymede:latest
-        ports:
-          - containerPort: 3000
-        resources:
-          requests:
-            cpu: 500m
-            memory: 512M
-          limits:
-            cpu: 500m
-            memory: 512M
-        volumeMounts:
-        - name: config-volume
-          mountPath: /app
+        - name: ganymede
+          image: ghcr.io/ngc7293/ganymede:latest
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512M
+            limits:
+              cpu: 500m
+              memory: 512M
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app
       volumes:
-      - name: config-volume
-        configMap:
-          name: ganymede-config-cm
-
+        - name: config-volume
+          configMap:
+            name: ganymede-config-cm
 ---
-
 apiVersion: v1
 kind: Service
 metadata:
   name: ganymede
+  namespace: ganymede
   labels:
     app.kubernetes.io/name: ganymede
     app.kubernetes.io/component: app
@@ -69,33 +68,32 @@ spec:
     - protocol: TCP
       port: 3000
       targetPort: 3000
-
 ---
-
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: api
+  namespace: ganymede
   annotations:
     nginx.ingress.kubernetes.io/backend-protocol: GRPC
-    cert-manager.io/issuer: letsencrypt
+    cert-manager.io/cluster-issuer: letsencrypt
   labels:
     app.kubernetes.io/name: ganymede
     app.kubernetes.io/component: api
 spec:
   ingressClassName: nginx
   tls:
-  - hosts:
-    - ganymede.davidbourgault.ca
-    secretName: ganymede-letsencrypt-cert
+    - hosts:
+        - ganymede.davidbourgault.ca
+      secretName: ganymede-letsencrypt-cert
   rules:
-  - host: ganymede.davidbourgault.ca
-    http:
-      paths:
-      - pathType: Prefix
-        path: /
-        backend:
-          service:
-            name: ganymede
-            port:
-              number: 3000
+    - host: ganymede.davidbourgault.ca
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: ganymede
+                port:
+                  number: 3000

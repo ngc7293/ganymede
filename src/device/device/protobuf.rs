@@ -1,5 +1,3 @@
-use chrono::{Offset, TimeZone};
-
 use crate::ganymede;
 
 use super::{errors::DeviceError, model::DeviceModel};
@@ -35,26 +33,12 @@ impl TryFrom<DeviceModel> for ganymede::v2::Device {
     type Error = DeviceError;
 
     fn try_from(value: DeviceModel) -> Result<ganymede::v2::Device, DeviceError> {
-        let tz: chrono_tz::Tz = match value.timezone.parse() {
-            Ok(tz) => tz,
-            Err(err) => {
-                log::error!("Failed to parse timezone: {err}");
-                return Err(DeviceError::InvalidTimezone);
-            }
-        };
-
-        let offset_seconds = tz
-            .offset_from_utc_datetime(&chrono::Utc::now().naive_utc())
-            .fix()
-            .local_minus_utc() as i64;
-
         let result = ganymede::v2::Device {
             uid: value.device_id.to_string(),
             mac: value.mac.try_into().map_err(|_| DeviceError::InvalidMac)?,
             display_name: value.display_name,
             description: value.description,
             timezone: value.timezone,
-            timezone_offset_minutes: offset_seconds / 60,
             config_uid: value.config_id.to_string(),
         };
 
@@ -79,7 +63,6 @@ mod tests {
             display_name: "I am a device".to_string(),
             description: "Watch how I pour".to_string(),
             timezone: "America/Caracas".to_string(),
-            timezone_offset_minutes: 900, // Must be ignored
             config_uid: config_uid.to_string(),
         };
 
@@ -100,7 +83,6 @@ mod tests {
             display_name: "".to_string(),
             description: "".to_string(),
             timezone: "Rohan/Edoras".to_string(),
-            timezone_offset_minutes: 0,
             config_uid:  uuid::Uuid::nil().to_string(),
         };
 
@@ -116,7 +98,6 @@ mod tests {
             display_name: "".to_string(),
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
-            timezone_offset_minutes: 0,
             config_uid:  uuid::Uuid::nil().to_string(),
         };
 
@@ -132,7 +113,6 @@ mod tests {
             display_name: "".to_string(),
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
-            timezone_offset_minutes: 0,
             config_uid:  uuid::Uuid::nil().to_string(),
         };
 
@@ -148,7 +128,6 @@ mod tests {
             display_name: "".to_string(),
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
-            timezone_offset_minutes: 0,
             config_uid: "not-a-uid".to_string(),
         };
 
@@ -164,7 +143,6 @@ mod tests {
             display_name: "".to_string(),
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
-            timezone_offset_minutes: 0,
             config_uid:  uuid::Uuid::nil().to_string(),
         };
 
@@ -189,26 +167,25 @@ mod tests {
         assert_eq!(result.display_name, "I am a device");
         assert_eq!(result.description, "Short and stout");
         assert_eq!(result.timezone, "America/Caracas");
-        assert_eq!(result.timezone_offset_minutes, -4 * 60);
         assert_eq!(result.config_uid, "ffffffff-ffff-ffff-ffff-ffffffffffff");
     }
 
-    #[test]
-    fn test_computes_correct_timezone_offset() {
-        let mut device = DeviceModel {
-            device_id: uuid::Uuid::nil(),
-            display_name: "".to_string(),
-            mac: mac::Mac::try_from("00:00:00:00:00:00".to_string()).unwrap(),
-            config_id: uuid::Uuid::nil(),
-            description: "".to_string(),
-            timezone: "America/Caracas".to_string(),
-        };
+    // #[test]
+    // fn test_computes_correct_timezone_offset() {
+    //     let mut device = DeviceModel {
+    //         device_id: uuid::Uuid::nil(),
+    //         display_name: "".to_string(),
+    //         mac: mac::Mac::try_from("00:00:00:00:00:00".to_string()).unwrap(),
+    //         config_id: uuid::Uuid::nil(),
+    //         description: "".to_string(),
+    //         timezone: "America/Caracas".to_string(),
+    //     };
 
-        let result = ganymede::v2::Device::try_from(device.clone()).unwrap();
-        assert_eq!(result.timezone_offset_minutes, -4 * 60);
+    //     let result = ganymede::v2::Device::try_from(device.clone()).unwrap();
+    //     assert_eq!(result.timezone_offset_minutes, -4 * 60);
 
-        device.timezone = "Asia/Shanghai".to_string();
-        let result = ganymede::v2::Device::try_from(device.clone()).unwrap();
-        assert_eq!(result.timezone_offset_minutes, 8 * 60);
-    }
+    //     device.timezone = "Asia/Shanghai".to_string();
+    //     let result = ganymede::v2::Device::try_from(device.clone()).unwrap();
+    //     assert_eq!(result.timezone_offset_minutes, 8 * 60);
+    // }
 }

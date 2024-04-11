@@ -1,16 +1,19 @@
 use std::result::Result;
 
+use chrono::{Offset, TimeZone};
+
 use tonic::{Request, Response, Status};
 
 use crate::auth::authenticate;
 use crate::ganymede;
-use crate::types::mac::Mac;
+use crate::ganymede::v2::PollResponse;
+use crate::types::mac;
 
 use super::config::errors::ConfigError;
 use super::database::DomainDatabase;
 use super::device::errors::DeviceError;
 use super::device::model::DeviceModel;
-use super::device::operations::{DeviceFilter, UniqueDeviceFilter};
+use super::device::operations::DeviceFilter;
 
 pub struct DeviceService {
     dbpool: sqlx::Pool<sqlx::Postgres>,
@@ -75,29 +78,12 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
 
         let payload = request.into_inner();
 
-        let filter = match payload.filter {
-            Some(filter) => match filter {
-                ganymede::v2::get_device_request::Filter::DeviceUid(device_id) => {
-                    match uuid::Uuid::try_parse(&device_id) {
-                        Ok(uuid) => UniqueDeviceFilter::DeviceId(uuid),
-                        Err(_) => Err(DeviceError::InvalidDeviceId)?,
-                    }
-                }
-                ganymede::v2::get_device_request::Filter::DeviceMac(device_mac) => {
-                    match Mac::try_from(device_mac) {
-                        Ok(mac) => UniqueDeviceFilter::DeviceMac(mac),
-                        Err(_) => Err(DeviceError::InvalidMac)?,
-                    }
-                }
-            },
-            None => {
-                return Err(Status::invalid_argument(
-                    "You must provide one of device_id or device_mac",
-                ))
-            }
+        let device_id = match uuid::Uuid::try_parse(&payload.device_uid) {
+            Ok(uuid) => uuid,
+            Err(_) => Err(DeviceError::InvalidDeviceId)?
         };
 
-        let result = database.fetch_one_device(filter).await?;
+        let result = database.fetch_one_device(device_id).await?;
         Ok(Response::new(result.try_into()?))
     }
 
@@ -149,6 +135,48 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
 
         database.delete_device(&device_id).await?;
         Ok(Response::new(()))
+    }
+
+    async fn poll(
+        &self,
+        request: Request<ganymede::v2::PollRequest>,
+    ) -> Result<Response<ganymede::v2::PollResponse>, Status> {
+        let domain_id = authenticate(&request)?;
+        let database = DomainDatabase::new(&self.dbpool, domain_id);
+
+        let payload = request.into_inner();
+
+        let mac = mac::Mac::try_parse(&payload.device_mac).map_err(|_| DeviceError::InvalidMac)?;
+        let device_id = match database.fetch_device_id_for_mac(&mac).await? {
+            Some(device_id) => device_id,
+            None => Err(DeviceError::NoSuchDevice)?
+        };
+
+        let device = database.fetch_one_device(device_id).await?;
+        let config = database.fetch_one_config(&device.config_id).await?;
+
+        let tz: chrono_tz::Tz = match device.timezone.parse() {
+            Ok(tz) => tz,
+            Err(err) => {
+                log::error!("Failed to parse timezone: {err}");
+                Err(DeviceError::InvalidTimezone)?
+            }
+        };
+
+        let offset_seconds = tz
+            .offset_from_utc_datetime(&chrono::Utc::now().naive_utc())
+            .fix()
+            .local_minus_utc() as i64;
+
+
+        let response = PollResponse {
+            uid: device.device_id.to_string(),
+            display_name: device.display_name,
+            timezone_offset_minutes: offset_seconds / 60,
+            config: Some(config.try_into()?),
+        };
+
+        Ok(Response::new(response))
     }
 
     async fn create_config(
