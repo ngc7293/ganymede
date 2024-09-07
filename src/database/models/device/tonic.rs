@@ -1,28 +1,26 @@
-use crate::ganymede;
+use uuid::Uuid;
 
-use super::{errors::DeviceError, model::DeviceModel};
+use crate::ganymede;
+use crate::{Error, Result};
+
+use super::model::DeviceModel;
 
 impl TryFrom<ganymede::v2::Device> for DeviceModel {
-    type Error = DeviceError;
+    type Error = Error;
 
-    fn try_from(value: ganymede::v2::Device) -> Result<DeviceModel, DeviceError> {
-        if value.timezone.parse::<chrono_tz::Tz>().is_err() {
-            return Err(DeviceError::InvalidTimezone);
-        };
-
+    fn try_from(value: ganymede::v2::Device) -> Result<DeviceModel> {
         let device_id = match value.uid.as_str() {
-            "" => uuid::Uuid::nil(),
-            _ =>  uuid::Uuid::try_parse(&value.uid).map_err(|_| DeviceError::InvalidDeviceId)?
+            "" => Uuid::nil(),
+            _ => Uuid::try_parse(&value.uid)?,
         };
 
         let result = DeviceModel {
             device_id,
             display_name: value.display_name,
-            mac: value.mac.try_into().map_err(|_| DeviceError::InvalidMac)?,
-            config_id: uuid::Uuid::try_parse(&value.config_uid)
-                .map_err(|_| DeviceError::InvalidConfigId)?,
+            mac: value.mac.try_into()?,
+            config_id: Uuid::try_parse(&value.config_uid)?,
             description: value.description,
-            timezone: value.timezone,
+            timezone: value.timezone.parse::<chrono_tz::Tz>()?.to_string(),
         };
 
         Ok(result)
@@ -30,12 +28,12 @@ impl TryFrom<ganymede::v2::Device> for DeviceModel {
 }
 
 impl TryFrom<DeviceModel> for ganymede::v2::Device {
-    type Error = DeviceError;
+    type Error = Error;
 
-    fn try_from(value: DeviceModel) -> Result<ganymede::v2::Device, DeviceError> {
+    fn try_from(value: DeviceModel) -> Result<ganymede::v2::Device> {
         let result = ganymede::v2::Device {
             uid: value.device_id.to_string(),
-            mac: value.mac.try_into().map_err(|_| DeviceError::InvalidMac)?,
+            mac: value.mac.into(),
             display_name: value.display_name,
             description: value.description,
             timezone: value.timezone,
@@ -48,14 +46,16 @@ impl TryFrom<DeviceModel> for ganymede::v2::Device {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::mac;
+    use uuid::uuid;
+
+    use crate::types::MacAddress;
 
     use super::*;
 
     #[test]
     fn test_to_model() {
-        let device_uid = uuid::Uuid::new_v4();
-        let config_uid = uuid::Uuid::new_v4();
+        let device_uid = Uuid::new_v4();
+        let config_uid = Uuid::new_v4();
 
         let device = ganymede::v2::Device {
             uid: device_uid.to_string(),
@@ -69,7 +69,7 @@ mod tests {
         let model = DeviceModel::try_from(device).unwrap();
         assert_eq!(model.device_id, device_uid);
         assert_eq!(model.config_id, config_uid);
-        assert_eq!(model.mac, mac::Mac::try_from("aa:bb:cc:dd:ee:ff").unwrap());
+        assert_eq!(model.mac, MacAddress::try_from("aa:bb:cc:dd:ee:ff").unwrap());
         assert_eq!(model.display_name, "I am a device".to_string());
         assert_eq!(model.description, "Watch how I pour".to_string());
         assert_eq!(model.timezone, "America/Caracas");
@@ -78,16 +78,16 @@ mod tests {
     #[test]
     fn test_refuses_invalid_timezone() {
         let device = ganymede::v2::Device {
-            uid:  uuid::Uuid::nil().to_string(),
+            uid: Uuid::nil().to_string(),
             mac: "00:00:00:00:00:00".to_string(),
             display_name: "".to_string(),
             description: "".to_string(),
             timezone: "Rohan/Edoras".to_string(),
-            config_uid:  uuid::Uuid::nil().to_string(),
+            config_uid: Uuid::nil().to_string(),
         };
 
         let error = DeviceModel::try_from(device).unwrap_err();
-        assert_eq!(error, DeviceError::InvalidTimezone);
+        assert_eq!(error, Error::BadTimezone);
     }
 
     #[test]
@@ -98,11 +98,11 @@ mod tests {
             display_name: "".to_string(),
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
-            config_uid:  uuid::Uuid::nil().to_string(),
+            config_uid: Uuid::nil().to_string(),
         };
 
         let error = DeviceModel::try_from(device).unwrap_err();
-        assert_eq!(error, DeviceError::InvalidDeviceId);
+        assert_eq!(error, Error::BadUuid);
     }
 
     #[test]
@@ -113,17 +113,17 @@ mod tests {
             display_name: "".to_string(),
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
-            config_uid:  uuid::Uuid::nil().to_string(),
+            config_uid: Uuid::nil().to_string(),
         };
 
         let device = DeviceModel::try_from(device).unwrap();
-        assert_eq!(device.device_id, uuid::Uuid::nil());
+        assert_eq!(device.device_id, Uuid::nil());
     }
 
     #[test]
     fn test_refuses_invalid_config_uid() {
         let device = ganymede::v2::Device {
-            uid:  uuid::Uuid::nil().to_string(),
+            uid: Uuid::nil().to_string(),
             mac: "00:00:00:00:00:00".to_string(),
             display_name: "".to_string(),
             description: "".to_string(),
@@ -132,31 +132,31 @@ mod tests {
         };
 
         let error = DeviceModel::try_from(device).unwrap_err();
-        assert_eq!(error, DeviceError::InvalidConfigId);
+        assert_eq!(error, Error::BadUuid);
     }
 
     #[test]
     fn test_refuses_invalid_mac() {
         let device = ganymede::v2::Device {
-            uid:  uuid::Uuid::nil().to_string(),
+            uid: Uuid::nil().to_string(),
             mac: "".to_string(),
             display_name: "".to_string(),
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
-            config_uid:  uuid::Uuid::nil().to_string(),
+            config_uid: Uuid::nil().to_string(),
         };
 
         let error = DeviceModel::try_from(device).unwrap_err();
-        assert_eq!(error, DeviceError::InvalidMac);
+        assert_eq!(error, Error::BadMacAddress);
     }
 
     #[test]
     fn test_to_proto() {
         let device = DeviceModel {
-            device_id: uuid::uuid!("00000000-0000-0000-0000-000000000001"),
+            device_id: uuid!("00000000-0000-0000-0000-000000000001"),
             display_name: "I am a device".to_string(),
-            mac: mac::Mac::try_from("aa:bb:cc:dd:ee:ff".to_string()).unwrap(),
-            config_id: uuid::uuid!("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+            mac: MacAddress::try_from("aa:bb:cc:dd:ee:ff".to_string()).unwrap(),
+            config_id: uuid!("ffffffff-ffff-ffff-ffff-ffffffffffff"),
             description: "Short and stout".to_string(),
             timezone: "America/Caracas".to_string(),
         };
@@ -169,23 +169,4 @@ mod tests {
         assert_eq!(result.timezone, "America/Caracas");
         assert_eq!(result.config_uid, "ffffffff-ffff-ffff-ffff-ffffffffffff");
     }
-
-    // #[test]
-    // fn test_computes_correct_timezone_offset() {
-    //     let mut device = DeviceModel {
-    //         device_id: uuid::Uuid::nil(),
-    //         display_name: "".to_string(),
-    //         mac: mac::Mac::try_from("00:00:00:00:00:00".to_string()).unwrap(),
-    //         config_id: uuid::Uuid::nil(),
-    //         description: "".to_string(),
-    //         timezone: "America/Caracas".to_string(),
-    //     };
-
-    //     let result = ganymede::v2::Device::try_from(device.clone()).unwrap();
-    //     assert_eq!(result.timezone_offset_minutes, -4 * 60);
-
-    //     device.timezone = "Asia/Shanghai".to_string();
-    //     let result = ganymede::v2::Device::try_from(device.clone()).unwrap();
-    //     assert_eq!(result.timezone_offset_minutes, 8 * 60);
-    // }
 }

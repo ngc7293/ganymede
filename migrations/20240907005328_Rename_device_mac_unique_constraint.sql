@@ -1,0 +1,1 @@
+ALTER TABLE device RENAME CONSTRAINT device_mac_key TO device_mac_unique;

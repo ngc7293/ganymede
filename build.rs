@@ -24,10 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "#[derive(serde::Serialize, serde::Deserialize)] #[serde(rename_all = \"camelCase\")]",
         )
         .compile(
-            &[
-                "api/ganymede/v2/device.proto",
-                "api/ganymede/v2/measurements.proto",
-            ],
+            &["api/ganymede/v2/device.proto", "api/ganymede/v2/measurements.proto"],
             &["api/"],
         )?;
     Ok(())

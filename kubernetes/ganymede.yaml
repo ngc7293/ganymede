@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: app
 data:
   Ganymede.toml: |
-    postgres_uri = "postgres://postgres:postgres@localhost:5432/ganymede"
+    postgres_uri = "postgresql://postgres:postgres@database:5432/ganymede"
     port = 3000
 ---
 apiVersion: apps/v1
@@ -33,7 +33,8 @@ spec:
     spec:
       containers:
         - name: ganymede
-          image: ghcr.io/ngc7293/ganymede:latest
+          image: ghcr.io/ngc7293/ganymede:dev
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           resources:
@@ -45,7 +46,8 @@ spec:
               memory: 512M
           volumeMounts:
             - name: config-volume
-              mountPath: /app
+              mountPath: /app/Ganymede.toml
+              subPath: Ganymede.toml
       volumes:
         - name: config-volume
           configMap:

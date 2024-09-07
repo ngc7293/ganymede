@@ -4,11 +4,11 @@ on: push
 
 jobs:
   build-test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v4.1.7
 
       - name: Install protoc
         run: sudo apt-get install protobuf-compiler
@@ -22,19 +22,19 @@ jobs:
         run: cargo test
 
   build-docker:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     needs: build-test
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2.1.0
+        uses: docker/login-action@v3.3.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v4.1.7
 
       - name: Build image
         run: docker build . -t ganymede

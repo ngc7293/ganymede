@@ -10,7 +10,8 @@ services:
       - ./Ganymede.toml:/app/Ganymede.toml
 
   postgres:
-    image: postgres:15.3
+    image: timescale/timescaledb:latest-pg15
+    command: ["postgres", "-c", "log_statement=all"]
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ganymede

@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/duration.proto";
 
 package ganymede.v2;
 
@@ -55,13 +56,17 @@ message PollRequest {
 }
 
 message PollResponse {
-    string uid = 1;
-    string display_name = 2;
+    string device_uid = 1;
+    string device_display_name = 2;
 
-    // Output only. Current device's offset from UTC (including DST if applicable)
-    int64 timezone_offset_minutes = 10;
+    string config_uid = 11;
+    string config_display_name = 12;
 
-    Config config = 20;
+    // Current device's offset from UTC (including DST if applicable)
+    int64 timezone_offset_minutes = 20;
+    google.protobuf.Duration poll_period = 21;
+
+    LightConfig light_config = 101;
 }
 
 message CreateConfigRequest {
@@ -129,7 +134,7 @@ message Luminaire {
     }
 
     uint32 port = 1;
-    bool use_pwm = 2;
+    bool active_high = 2;
 
     repeated DailySchedule photo_period = 3;
 }
@@ -143,6 +148,8 @@ message Config {
     string uid = 1;
 
     string display_name = 2;
+
+    google.protobuf.Duration poll_period = 3;
 
     reserved 10, 11;
     reserved "pomp_config", "solution_config";

@@ -1,65 +1,82 @@
-use sqlx::postgres::PgPoolOptions;
+use crate::result::{Error, Result};
 use tonic::transport::Server;
 
-use crate::device::service::DeviceService;
-use ganymede::v2::device_service_server::DeviceServiceServer;
+use crate::database::database::Database;
+use crate::ganymede::v2::{
+    device_service_server::DeviceServiceServer, measurements_service_server::MeasurementsServiceServer,
+};
+use crate::services::{DeviceService, MeasurementsService};
 
-use crate::measurements::service::MeasurementsService;
-use ganymede::v2::measurements_service_server::MeasurementsServiceServer;
+mod database;
+mod ganymede;
+mod result;
+mod services;
+mod types;
 
-pub mod auth;
-pub mod device;
-pub mod ganymede;
-pub mod types;
-pub mod measurements;
+#[derive(clap::Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Arguments {
+    // Path to the configuration file
+    #[arg(short, long, default_value_t = String::from("Ganymede.toml"))]
+    pub config: String,
+}
 
 #[derive(serde::Deserialize)]
-struct Settings {
+struct RuntimeConfiguration {
     pub postgres_uri: String,
     pub port: u16,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
+    configure_logging();
 
-    let settings_file = std::fs::read_to_string("Ganymede.toml").map_err(|err| {
-        log::error!("Failed to read 'Ganymede.toml': {err}");
-        err
-    })?;
+    let configuration = try_read_configuration_file("Ganymede.toml")?;
 
-    let settings: Settings = toml::from_str(&settings_file).map_err(|err| {
-        log::error!("Failed to parse 'Ganymede.toml': {err}");
-        err
-    })?;
+    let database = Database::try_from_uri(&configuration.postgres_uri).await?;
+    let device = DeviceService::new(database.clone());
+    let measurements = MeasurementsService::new(database.clone());
 
-    let postgres = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&settings.postgres_uri)
-        .await
-        .map_err(|err| {
-            log::error!("Failed to connect to postgres: {err}");
-            err
-        })?;
-
-    let addr = format!("0.0.0.0:{0}", settings.port).parse()?;
+    let addr = format!("0.0.0.0:{0}", configuration.port).parse()?;
     let reflection = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(ganymede::v2::FILE_DESCRIPTOR_SET)
-        .build()
+        .build_v1alpha()
         .map_err(|err| {
             log::error!("Failed to create reflection service: {err}");
             err
         })?;
 
-    let device = DeviceService::new(postgres);
-    let measurements = MeasurementsService::new();
+    let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
 
-    Server::builder()
+    let future = Server::builder()
         .add_service(reflection)
+        .add_service(health_service)
         .add_service(DeviceServiceServer::new(device))
         .add_service(MeasurementsServiceServer::new(measurements))
-        .serve(addr)
-        .await?;
+        .serve(addr);
+
+    health_reporter.set_serving::<DeviceServiceServer<DeviceService>>().await;
+    health_reporter.set_serving::<MeasurementsServiceServer<MeasurementsService>>().await;
+    future.await?;
 
     Ok(())
+}
+
+fn configure_logging() {
+    let env = env_logger::Env::new().default_filter_or("INFO");
+    env_logger::init_from_env(env);
+}
+
+fn try_read_configuration_file(path: &str) -> Result<RuntimeConfiguration, Box<dyn std::error::Error>> {
+    let settings_file = std::fs::read_to_string(path).map_err(|err| {
+        log::error!("Failed to read 'Ganymede.toml': {err}");
+        err
+    })?;
+
+    let settings: RuntimeConfiguration = toml::from_str(&settings_file).map_err(|err| {
+        log::error!("Failed to read 'Ganymede.toml': {err}");
+        err
+    })?;
+
+    Ok(settings)
 }
