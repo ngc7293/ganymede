@@ -21,6 +21,8 @@ impl TryFrom<ganymede::v2::Device> for DeviceModel {
             config_id: Uuid::try_parse(&value.config_uid)?,
             description: value.description,
             timezone: value.timezone.parse::<chrono_tz::Tz>()?.to_string(),
+            uptime: None,
+            last_poll: None,
         };
 
         Ok(result)
@@ -31,6 +33,16 @@ impl TryFrom<DeviceModel> for ganymede::v2::Device {
     type Error = Error;
 
     fn try_from(value: DeviceModel) -> Result<ganymede::v2::Device> {
+        let last_poll = match value.last_poll {
+            Some(timestamp) => Some(prost_types::Timestamp { seconds: timestamp.timestamp(), nanos: 0 }), // FIXME: Handle full precision
+            None => None
+        };
+
+        let uptime = match value.uptime {
+            Some(duration) => Some(prost_types::Duration { seconds: duration.num_seconds(), nanos: duration.subsec_nanos() }),
+            None => None
+        };
+
         let result = ganymede::v2::Device {
             uid: value.device_id.to_string(),
             mac: value.mac.into(),
@@ -38,6 +50,8 @@ impl TryFrom<DeviceModel> for ganymede::v2::Device {
             description: value.description,
             timezone: value.timezone,
             config_uid: value.config_id.to_string(),
+            last_poll,
+            uptime,
         };
 
         Ok(result)
@@ -64,6 +78,8 @@ mod tests {
             description: "Watch how I pour".to_string(),
             timezone: "America/Caracas".to_string(),
             config_uid: config_uid.to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let model = DeviceModel::try_from(device).unwrap();
@@ -84,6 +100,8 @@ mod tests {
             description: "".to_string(),
             timezone: "Rohan/Edoras".to_string(),
             config_uid: Uuid::nil().to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let error = DeviceModel::try_from(device).unwrap_err();
@@ -99,6 +117,8 @@ mod tests {
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
             config_uid: Uuid::nil().to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let error = DeviceModel::try_from(device).unwrap_err();
@@ -114,6 +134,8 @@ mod tests {
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
             config_uid: Uuid::nil().to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let device = DeviceModel::try_from(device).unwrap();
@@ -129,6 +151,8 @@ mod tests {
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
             config_uid: "not-a-uid".to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let error = DeviceModel::try_from(device).unwrap_err();
@@ -144,6 +168,8 @@ mod tests {
             description: "".to_string(),
             timezone: "America/Montreal".to_string(),
             config_uid: Uuid::nil().to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let error = DeviceModel::try_from(device).unwrap_err();
@@ -159,6 +185,8 @@ mod tests {
             config_id: uuid!("ffffffff-ffff-ffff-ffff-ffffffffffff"),
             description: "Short and stout".to_string(),
             timezone: "America/Caracas".to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let result = ganymede::v2::Device::try_from(device).unwrap();

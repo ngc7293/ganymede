@@ -1,4 +1,4 @@
-use chrono::{Offset, TimeZone};
+use chrono::{Offset, TimeDelta, TimeZone};
 use uuid::Uuid;
 
 use tonic::{Request, Response, Status};
@@ -156,8 +156,15 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
             None => Err(Error::NoSuchDevice)?,
         };
 
+        let uptime = match payload.uptime {
+            Some(duration) => Some(TimeDelta::seconds(duration.seconds) + TimeDelta::nanoseconds(duration.nanos.into())),
+            None => None,
+        };
+        transaction.update_device_uptime(&device_id, uptime).await?;
+
         let device = transaction.fetch_one_device(&device_id).await?;
         let config = transaction.fetch_one_config(&device.config_id).await?;
+
 
         let tz: chrono_tz::Tz = match device.timezone.parse() {
             Ok(tz) => tz,
@@ -191,7 +198,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
             ),
         };
 
-        transaction.update_last_poll(&device.device_id, chrono::offset::Utc::now()).await?;
+        transaction.update_device_last_poll(&device.device_id, chrono::offset::Utc::now()).await?;
 
         transaction.commit().await?;
         Ok(Response::new(response))

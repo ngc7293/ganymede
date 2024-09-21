@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use uuid::Uuid;
 
 use crate::database::DomainDatabaseTransaction;
@@ -41,7 +41,7 @@ impl DomainDatabaseTransaction {
     pub async fn fetch_one_device(&mut self, device_id: &Uuid) -> Result<DeviceModel> {
         let result = sqlx::query_as::<_, DeviceModel>(
             "SELECT
-                device_id, domain_id, display_name, mac, config_id, description, timezone
+                device_id, domain_id, display_name, mac, config_id, description, timezone, last_poll, uptime
             FROM device
             WHERE
                 domain_id = $1
@@ -64,7 +64,7 @@ impl DomainDatabaseTransaction {
     pub async fn fetch_many_device(&mut self, filter: DeviceFilter) -> Result<Vec<DeviceModel>> {
         let mut query = sqlx::QueryBuilder::new(
             "SELECT
-                device_id, domain_id, display_name, mac, config_id, description, timezone
+                device_id, domain_id, display_name, mac, config_id, description, timezone, last_poll, uptime
             FROM device
             WHERE domain_id =",
         );
@@ -180,7 +180,7 @@ impl DomainDatabaseTransaction {
         }
     }
 
-    pub async fn update_last_poll(&mut self, device_id: &uuid::Uuid, last_poll: DateTime<Utc>) -> Result<()> {
+    pub async fn update_device_last_poll(&mut self, device_id: &uuid::Uuid, last_poll: DateTime<Utc>) -> Result<()> {
         let result = sqlx::query(
             "
             UPDATE device
@@ -193,6 +193,34 @@ impl DomainDatabaseTransaction {
         .bind(self.domain_id())
         .bind(device_id)
         .bind(last_poll)
+        .execute(self.executor())
+        .await;
+
+        match result {
+            Ok(row) => match row.rows_affected() {
+                1 => Ok(()),
+                0 => Err(Error::NoSuchDevice),
+                n => Err(Error::DatabaseError(format!(
+                    "Update statement affected {n} but we expected 1"
+                ))),
+            },
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    pub async fn update_device_uptime(&mut self, device_id: &uuid::Uuid, uptime: Option<TimeDelta>) -> Result<()> {
+        let result = sqlx::query(
+            "
+            UPDATE device
+            SET
+                uptime = $3
+            WHERE
+                domain_id = $1
+                AND device_id = $2",
+        )
+        .bind(self.domain_id())
+        .bind(device_id)
+        .bind(uptime)
         .execute(self.executor())
         .await;
 
@@ -235,6 +263,8 @@ mod tests {
             config_id: Uuid::nil(),
             description: "This is a description".to_string(),
             timezone: "America/Montreal".to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let result = transaction.insert_device(device).await.unwrap();
@@ -254,6 +284,8 @@ mod tests {
             config_id: Uuid::nil(),
             description: "This is a description".to_string(),
             timezone: "America/Montreal".to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let result = transaction.insert_device(device).await.unwrap_err();
@@ -273,6 +305,8 @@ mod tests {
             config_id: Uuid::nil(),
             description: "This is a description".to_string(),
             timezone: "America/Montreal".to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let result = transaction.insert_device(device).await.unwrap_err();
@@ -291,6 +325,8 @@ mod tests {
             mac: MacAddress::try_from("00:00:00:00:00:00".to_string()).unwrap(),
             config_id: Uuid::nil(),
             timezone: "America/Montreal".to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let returned = transaction.update_device(updated.clone()).await.unwrap();
@@ -311,6 +347,8 @@ mod tests {
             mac: MacAddress::try_from("00:00:00:00:00:00".to_string()).unwrap(),
             config_id: uuid!("00000000-0000-0000-0000-000000000001"),
             timezone: "America/Montreal".to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         let result = transaction.update_device(updated).await.unwrap_err();
@@ -329,6 +367,8 @@ mod tests {
             mac: MacAddress::try_from("00:00:00:00:00:01".to_string())?,
             config_id: Uuid::nil(),
             timezone: "America/Montreal".to_string(),
+            last_poll: None,
+            uptime: None,
         };
 
         device.device_id = transaction.insert_device(device.clone()).await.unwrap();
