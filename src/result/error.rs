@@ -10,6 +10,7 @@ pub enum Error {
     BadTimestamp,
     BadPollPeriod,
     BadLightConfiguration,
+    BadSensorConfiguration,
 
     // There is already a device with this MAC address in the database
     DuplicateMacAddress,

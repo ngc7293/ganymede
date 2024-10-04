@@ -34,11 +34,19 @@ impl TryFrom<ganymede::v2::Config> for ConfigModel {
             None => return Err(Error::BadLightConfiguration),
         };
 
+        let parsed_sensor_configs = match serde_json::to_value(&value.sensor_configs) {
+            Ok(json) => json,
+            Err(_) => {
+                return Err(Error::BadSensorConfiguration);
+            }
+        };
+
         let result = ConfigModel {
             config_id,
             display_name: value.display_name,
             poll_period: parsed_poll_period,
             light_config: parsed_light_config,
+            sensor_configs: parsed_sensor_configs,
         };
 
         Ok(result)
@@ -61,10 +69,17 @@ impl TryFrom<ConfigModel> for ganymede::v2::Config {
                     Ok(config) => config,
                     Err(err) => {
                         log::error!("error parsing JSON from DB: {err}");
-                        return Err(Error::BadLightConfiguration);
+                        return Err(Error::GenericError(err.to_string()));
                     }
                 },
             ),
+            sensor_configs: match serde_json::from_value::<Vec<ganymede::v2::SensorConfig>>(value.sensor_configs) {
+                Ok(configs) => configs,
+                Err(err) => {
+                    log::error!("error parsing JSON from DB: {err}");
+                    return Err(Error::GenericError(err.to_string()));
+                }
+            },
         };
 
         Ok(result)
@@ -89,6 +104,14 @@ mod tests {
             light_config: Some(ganymede::v2::LightConfig {
                 luminaires: [].to_vec(),
             }),
+            sensor_configs: vec![ganymede::v2::SensorConfig {
+                sensor: Some(ganymede::v2::sensor_config::Sensor::Am2320(
+                    ganymede::v2::Am2320Config {
+                        sda_port: 5,
+                        scl_port: 6,
+                    },
+                )),
+            }],
         };
 
         let model = ConfigModel::try_from(config).unwrap();
@@ -96,6 +119,10 @@ mod tests {
         assert_eq!(model.display_name, "this is a config");
         assert_eq!(model.poll_period, chrono::TimeDelta::seconds(1800));
         assert_eq!(model.light_config, serde_json::json!({"luminaires": []}));
+        assert_eq!(
+            model.sensor_configs,
+            serde_json::json!([{"sensor": {"am2320": {"sclPort": 6, "sdaPort": 5}}}])
+        );
     }
 
     #[test]
@@ -110,6 +137,7 @@ mod tests {
             light_config: Some(ganymede::v2::LightConfig {
                 luminaires: [].to_vec(),
             }),
+            sensor_configs: Vec::new(),
         };
 
         let error = ConfigModel::try_from(config).unwrap_err();
@@ -126,6 +154,7 @@ mod tests {
                 nanos: 0,
             }),
             light_config: None,
+            sensor_configs: Vec::new(),
         };
 
         let error = ConfigModel::try_from(config).unwrap_err();
@@ -139,6 +168,7 @@ mod tests {
             display_name: "".to_string(),
             poll_period: Some(prost_types::Duration { seconds: 360, nanos: 0 }),
             light_config: None,
+            sensor_configs: Vec::new(),
         };
 
         let error = ConfigModel::try_from(config).unwrap_err();
@@ -166,6 +196,12 @@ mod tests {
                     }
                 ]
             }),
+            sensor_configs: serde_json::json!(
+                [
+                    {"sensor": {"am2320": {"sclPort": 6, "sdaPort": 5}}},
+                    {"sensor": {"am2320": {"sclPort": 1, "sdaPort": 2}}}
+                ]
+            ),
         };
 
         let result = ganymede::v2::Config::try_from(config).unwrap();
@@ -201,6 +237,28 @@ mod tests {
                 }]
                 .to_vec()
             })
+        );
+        assert_eq!(
+            result.sensor_configs,
+            [
+                ganymede::v2::SensorConfig {
+                    sensor: Some(ganymede::v2::sensor_config::Sensor::Am2320(
+                        ganymede::v2::Am2320Config {
+                            sda_port: 5,
+                            scl_port: 6
+                        }
+                    ))
+                },
+                ganymede::v2::SensorConfig {
+                    sensor: Some(ganymede::v2::sensor_config::Sensor::Am2320(
+                        ganymede::v2::Am2320Config {
+                            sda_port: 2,
+                            scl_port: 1
+                        }
+                    ))
+                },
+            ]
+            .to_vec()
         );
     }
 }

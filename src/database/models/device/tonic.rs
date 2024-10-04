@@ -34,13 +34,19 @@ impl TryFrom<DeviceModel> for ganymede::v2::Device {
 
     fn try_from(value: DeviceModel) -> Result<ganymede::v2::Device> {
         let last_poll = match value.last_poll {
-            Some(timestamp) => Some(prost_types::Timestamp { seconds: timestamp.timestamp(), nanos: 0 }), // FIXME: Handle full precision
-            None => None
+            Some(timestamp) => Some(prost_types::Timestamp {
+                seconds: timestamp.timestamp(),
+                nanos: 0,
+            }), // FIXME: Handle full precision
+            None => None,
         };
 
         let uptime = match value.uptime {
-            Some(duration) => Some(prost_types::Duration { seconds: duration.num_seconds(), nanos: duration.subsec_nanos() }),
-            None => None
+            Some(duration) => Some(prost_types::Duration {
+                seconds: duration.num_seconds(),
+                nanos: duration.subsec_nanos(),
+            }),
+            None => None,
         };
 
         let result = ganymede::v2::Device {

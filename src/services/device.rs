@@ -157,14 +157,15 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         };
 
         let uptime = match payload.uptime {
-            Some(duration) => Some(TimeDelta::seconds(duration.seconds) + TimeDelta::nanoseconds(duration.nanos.into())),
+            Some(duration) => {
+                Some(TimeDelta::seconds(duration.seconds) + TimeDelta::nanoseconds(duration.nanos.into()))
+            }
             None => None,
         };
         transaction.update_device_uptime(&device_id, uptime).await?;
 
         let device = transaction.fetch_one_device(&device_id).await?;
         let config = transaction.fetch_one_config(&device.config_id).await?;
-
 
         let tz: chrono_tz::Tz = match device.timezone.parse() {
             Ok(tz) => tz,
@@ -192,10 +193,17 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
                     Ok(config) => config,
                     Err(err) => {
                         log::error!("error parsing JSON from DB: {err}");
-                        return Err(Error::BadLightConfiguration)?;
+                        return Err(Error::GenericError(err.to_string()))?;
                     }
                 },
             ),
+            sensor_configs: match serde_json::from_value::<Vec<ganymede::v2::SensorConfig>>(config.sensor_configs) {
+                Ok(configs) => configs,
+                Err(err) => {
+                    log::error!("error parsing JSON from DB: {err}");
+                    return Err(Error::GenericError(err.to_string()))?;
+                }
+            },
         };
 
         transaction.update_device_last_poll(&device.device_id, chrono::offset::Utc::now()).await?;

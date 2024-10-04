@@ -23,6 +23,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "ganymede.v2.Time",
             "#[derive(serde::Serialize, serde::Deserialize)] #[serde(rename_all = \"camelCase\")]",
         )
+        .type_attribute(
+            "ganymede.v2.SensorConfig",
+            "#[derive(serde::Serialize, serde::Deserialize)] #[serde(rename_all = \"camelCase\")]",
+        )
+        .type_attribute(
+            "ganymede.v2.SensorConfig.sensor",
+            "#[derive(serde::Serialize, serde::Deserialize)] #[serde(rename_all = \"camelCase\")]",
+        )
+        .type_attribute(
+            "ganymede.v2.Am2320Config",
+            "#[derive(serde::Serialize, serde::Deserialize)] #[serde(rename_all = \"camelCase\")]",
+        )
         .compile(
             &["api/ganymede/v2/device.proto", "api/ganymede/v2/measurements.proto"],
             &["api/"],

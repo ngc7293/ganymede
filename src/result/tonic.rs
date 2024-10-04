@@ -20,6 +20,7 @@ impl From<Error> for tonic::Status {
             Error::BadTimestamp => tonic::Status::invalid_argument("invalid timestamp"),
             Error::BadPollPeriod => tonic::Status::invalid_argument("invalid poll period"),
             Error::BadLightConfiguration => tonic::Status::invalid_argument("invalid light configuration"),
+            Error::BadSensorConfiguration => tonic::Status::invalid_argument("invalid sensor configuration"),
             Error::DuplicateMacAddress => tonic::Status::invalid_argument("duplicate mac address"),
             Error::ConfigInUse => tonic::Status::failed_precondition("config is in use"),
             Error::NoSuchDevice => tonic::Status::not_found("no such device"),

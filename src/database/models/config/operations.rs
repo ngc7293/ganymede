@@ -32,7 +32,7 @@ impl DomainDatabaseTransaction {
     pub async fn fetch_one_config(&mut self, config_id: &uuid::Uuid) -> Result<ConfigModel> {
         let result = sqlx::query_as::<_, ConfigModel>(
             "SELECT
-                config_id, domain_id, display_name, poll_period, light_config
+                config_id, domain_id, display_name, poll_period, light_config, sensor_configs
             FROM config
             WHERE
                 domain_id = $1
@@ -55,7 +55,7 @@ impl DomainDatabaseTransaction {
     pub async fn fetch_many_config(&mut self, filter: ConfigFilter) -> Result<Vec<ConfigModel>> {
         let mut query = sqlx::QueryBuilder::new(
             "SELECT
-                config_id, domain_id, display_name, poll_period, light_config
+                config_id, domain_id, display_name, poll_period, light_config, sensor_configs
             FROM config
             WHERE domain_id = ",
         );
@@ -79,15 +79,16 @@ impl DomainDatabaseTransaction {
     pub async fn insert_config(&mut self, config: ConfigModel) -> Result<Uuid> {
         let result = sqlx::query_as::<_, (uuid::Uuid,)>(
             "INSERT INTO config(
-                domain_id, display_name, poll_period, light_config
+                domain_id, display_name, poll_period, light_config, sensor_configs
             ) VALUES (
-                $1, $2, $3, $4
+                $1, $2, $3, $4, $5
             ) RETURNING config_id",
         )
         .bind(self.domain_id())
         .bind(&config.display_name)
         .bind(&config.poll_period)
         .bind(&config.light_config)
+        .bind(&config.sensor_configs)
         .fetch_one(self.executor())
         .await;
 
@@ -103,7 +104,8 @@ impl DomainDatabaseTransaction {
             SET
                 display_name = $3,
                 poll_period = $4,
-                light_config = $5
+                light_config = $5,
+                sensor_configs = $6
             WHERE
                 domain_id = $1
                 AND config_id = $2
@@ -114,6 +116,7 @@ impl DomainDatabaseTransaction {
         .bind(&config.display_name)
         .bind(&config.poll_period)
         .bind(&config.light_config)
+        .bind(&config.sensor_configs)
         .fetch_one(self.executor())
         .await;
 
@@ -187,6 +190,7 @@ mod tests {
             display_name: "config".to_string(),
             poll_period: TimeDelta::hours(1),
             light_config: serde_json::json!({"luminaires": []}),
+            sensor_configs: serde_json::json!([]),
         };
 
         let config_id = transaction.insert_config(config).await.unwrap();
@@ -204,12 +208,14 @@ mod tests {
                 display_name: "config-1".to_string(),
                 poll_period: TimeDelta::hours(1),
                 light_config: serde_json::json!({"luminaires": []}),
+                sensor_configs: serde_json::json!([]),
             },
             ConfigModel {
                 config_id: uuid!("00000000-0000-0000-0000-000000000002"),
                 display_name: "config-2".to_string(),
                 poll_period: TimeDelta::hours(1),
                 light_config: serde_json::json!({"luminaires": []}),
+                sensor_configs: serde_json::json!([]),
             },
         ];
 
@@ -238,6 +244,7 @@ mod tests {
             display_name: "Different config".to_string(),
             poll_period: chrono::TimeDelta::seconds(600),
             light_config: serde_json::json!({"luminaires": []}),
+            sensor_configs: serde_json::json!([]),
         };
 
         transaction.update_config(updated.clone()).await.unwrap();

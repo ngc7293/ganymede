@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
         - name: database
-          image: postgres:15.3
+          image: timescale/timescaledb:latest-pg16
           ports:
             - containerPort: 5432
           env:

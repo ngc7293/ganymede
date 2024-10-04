@@ -1,0 +1,1 @@
+ALTER TABLE config ADD COLUMN sensor_configs JSONB NOT NULL;
