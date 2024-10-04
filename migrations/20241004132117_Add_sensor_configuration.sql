@@ -1,1 +1,2 @@
-ALTER TABLE config ADD COLUMN sensor_configs JSONB NOT NULL;
+ALTER TABLE config ADD COLUMN sensor_configs JSONB NOT NULL DEFAULT '[]'::JSONB;
+ALTER TABLE config ALTER COLUMN sensor_configs DROP DEFAULT;
