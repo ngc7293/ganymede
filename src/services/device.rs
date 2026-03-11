@@ -1,5 +1,5 @@
 use chrono::{Offset, TimeDelta, TimeZone};
-use uuid::Uuid;
+use uuid::{uuid, Uuid};
 
 use tonic::{Request, Response, Status};
 
@@ -12,8 +12,6 @@ use crate::result::{Error, Result};
 use crate::types::MacAddress;
 
 use crate::database::models::DeviceModel;
-
-use super::auth::authenticate;
 
 pub struct DeviceService {
     database: Database,
@@ -31,7 +29,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::CreateDeviceRequest>,
     ) -> Result<Response<ganymede::v2::Device>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
@@ -56,7 +54,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::UpdateDeviceRequest>,
     ) -> Result<Response<ganymede::v2::Device>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
@@ -78,7 +76,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::GetDeviceRequest>,
     ) -> Result<Response<ganymede::v2::Device>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
@@ -94,7 +92,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::ListDeviceRequest>,
     ) -> Result<Response<ganymede::v2::ListDeviceResponse>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
         let payload = request.into_inner();
         let filter = match payload.filter {
@@ -125,7 +123,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
     }
 
     async fn delete_device(&self, request: Request<ganymede::v2::DeleteDeviceRequest>) -> Result<Response<()>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
@@ -145,7 +143,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::PollRequest>,
     ) -> Result<Response<ganymede::v2::PollResponse>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
@@ -216,7 +214,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::CreateConfigRequest>,
     ) -> Result<Response<ganymede::v2::Config>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
@@ -237,7 +235,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::UpdateConfigRequest>,
     ) -> Result<Response<ganymede::v2::Config>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
@@ -258,7 +256,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::GetConfigRequest>,
     ) -> Result<Response<ganymede::v2::Config>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
@@ -274,7 +272,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
         &self,
         request: Request<ganymede::v2::ListConfigRequest>,
     ) -> Result<Response<ganymede::v2::ListConfigResponse>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
@@ -297,7 +295,7 @@ impl ganymede::v2::device_service_server::DeviceService for DeviceService {
     }
 
     async fn delete_config(&self, request: Request<ganymede::v2::DeleteConfigRequest>) -> Result<Response<()>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();

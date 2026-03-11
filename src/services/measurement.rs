@@ -1,11 +1,10 @@
 use tonic::{Request, Response, Status};
+use uuid::uuid;
 
 use crate::database::models::AtmosphereDataModel;
 use crate::database::Database;
 use crate::ganymede;
 use crate::Result;
-
-use super::auth::authenticate;
 
 pub struct MeasurementsService {
     database: Database,
@@ -21,9 +20,9 @@ impl MeasurementsService {
 impl ganymede::v2::measurements_service_server::MeasurementsService for MeasurementsService {
     async fn get_measurements(
         &self,
-        request: Request<ganymede::v2::GetMeasurementsRequest>,
+        _: Request<ganymede::v2::GetMeasurementsRequest>,
     ) -> Result<Response<ganymede::v2::GetMeasurementsResponse>, Status> {
-        let _domain_id = authenticate(&request)?;
+        let _ = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
 
         // TODO
 
@@ -34,7 +33,7 @@ impl ganymede::v2::measurements_service_server::MeasurementsService for Measurem
         &self,
         request: Request<ganymede::v2::PushMeasurementsRequest>,
     ) -> Result<Response<()>, Status> {
-        let domain_id = authenticate(&request)?;
+        let domain_id = uuid!("68ff6c2b-2393-47b9-b26d-6cf69b3d56e6");
         let mut transaction = self.database.for_domain(domain_id).begin().await?;
 
         let payload = request.into_inner();
